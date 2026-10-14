@@ -11,11 +11,13 @@ interface Props {
   dispositivo: DispositivoVinculado;
   /** Chamado depois que o SecureStore é limpo, para voltar à tela de vínculo. */
   onSair: () => void;
+  /** Abre o registro de ocorrência (falta/atraso) com justificativa. */
+  onRegistrarOcorrencia: () => void;
 }
 
 type StatusFeedback = { tipo: 'sucesso' | 'erro'; texto: string } | null;
 
-export default function CheckinScreen({ dispositivo, onSair }: Props) {
+export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrencia }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [feedback, setFeedback] = useState<StatusFeedback>(null);
 
@@ -150,6 +152,13 @@ export default function CheckinScreen({ dispositivo, onSair }: Props) {
         )}
       </View>
 
+      {/* Registro de falta/atraso com justificativa: o aluno confirma a
+          biometria, explica o que houve e a coordenação decide. Separado
+          do check-in de chegada, que é um toque só. */}
+      <TouchableOpacity style={styles.botaoOcorrencia} onPress={onRegistrarOcorrencia}>
+        <Text style={styles.textoBotaoOcorrencia}>Registrar falta ou atraso</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.botaoSair} onPress={handleSair}>
         <Text style={styles.textoBotaoSair}>Trocar dispositivo / Sair</Text>
       </TouchableOpacity>
@@ -237,6 +246,17 @@ const styles = StyleSheet.create({
   textoErro: {
     color: '#b91c1c',
   },
+  botaoOcorrencia: {
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  textoBotaoOcorrencia: { color: '#2563eb', fontSize: 15, fontWeight: '700' },
   botaoSair: {
     alignItems: 'center',
     paddingVertical: 14,

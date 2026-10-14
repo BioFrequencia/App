@@ -1,0 +1,131 @@
+name: Aplicativo Android
+
+# Gera o APK automaticamente. Duas estratégias, porque uma depende de
+# conta externa e a outra não:
+#
+#  - "apk-local": prebuild do Expo + Gradle na própria máquina do CI.
+#    Não precisa de conta nem token nenhum, e o .apk sai como artifact
+#    de cada execução. É o caminho padrão.
+#
+#  - "apk-eas": build na nuvem do Expo (EAS). Só roda se o segredo
+#    EXPO_TOKEN estiver configurado no repositório; sem ele o job é
+#    pulado em vez de falhar.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validar:
+    name: Verificação de tipos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  apk-local:
+    name: Gerar APK (Gradle)
+    needs: validar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # O runner do GitHub já traz o SDK do Android; só o JDK precisa
+      # ser fixado, porque o AGP exige uma versão específica.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      # O projeto é Expo "managed" (não tem pasta android/ no
+      # repositório): o prebuild a gera a partir do app.json. Assim o
+      # app.json continua sendo a única fonte de configuração, e nada
+      # de nativo precisa ser versionado à mão.
+      - name: Gerar o projeto Android (expo prebuild)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Compilar o APK de release
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      # Sem esta conferência, um Gradle que "passa" mas não produz
+      # arquivo nenhum passaria despercebido até alguém tentar baixar.
+      - name: Conferir se o APK existe mesmo
+        id: apk
+        run: |
+          caminho=$(find android/app/build/outputs/apk -name '*.apk' | head -1)
+          if [ -z "$caminho" ]; then
+            echo "ERRO: nenhum .apk foi gerado"
+            find android/app/build/outputs -type f | head -20
+            exit 1
+          fi
+          tamanho=$(stat -c%s "$caminho")
+          echo "APK: $caminho ($((tamanho/1024/1024)) MB)"
+          # Um APK é um zip: se não abrir, saiu corrompido.
+          unzip -t "$caminho" > /dev/null || { echo "ERRO: APK corrompido"; exit 1; }
+          echo "caminho=$caminho" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar o APK como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: biofrequencia-app
+          path: ${{ steps.apk.outputs.caminho }}
+          retention-days: 30
+
+      # Em push na branch principal o APK também vira uma release fixa,
+      # para o site poder apontar um link estável em vez de depender do
+      # artifact daquela execução (que expira).
+      - name: Publicar na release "app-mais-recente"
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-mais-recente
+          name: BioFrequência - app mais recente
+          files: ${{ steps.apk.outputs.caminho }}
+          body: |
+            APK gerado automaticamente a partir do commit ${{ github.sha }}.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  apk-eas:
+    name: Gerar APK (EAS, se houver token)
+    needs: validar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar se há EXPO_TOKEN
+        id: tem_token
+        run: echo "ok=${{ secrets.EXPO_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.tem_token.outputs.ok == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        if: steps.tem_token.outputs.ok == 'true'
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - if: steps.tem_token.outputs.ok == 'true'
+        run: npm ci
+      - if: steps.tem_token.outputs.ok == 'true'
+        run: eas build --platform android --profile preview --non-interactive --no-wait
+      - if: steps.tem_token.outputs.ok != 'true'
+        run: echo "EXPO_TOKEN não configurado - build pelo EAS pulado (o APK do job apk-local continua valendo)."

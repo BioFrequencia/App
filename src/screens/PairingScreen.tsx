@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,7 +13,8 @@ import {
 
 import { vincularDispositivo } from '../api/pairing';
 import { ApiError } from '../api/client';
-import { getBaseUrl, getOrCreateDeviceUuid, salvarDispositivoVinculado, setBaseUrl } from '../storage/deviceStorage';
+import { getOrCreateDeviceUuid, salvarDispositivoVinculado } from '../storage/deviceStorage';
+import { obterApiBaseUrl } from '../config';
 import type { DispositivoVinculado } from '../types';
 
 interface Props {
@@ -24,32 +25,18 @@ interface Props {
 }
 
 export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) {
-  const [baseUrl, setBaseUrlState] = useState('');
   const [codigo, setCodigo] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [carregandoConfig, setCarregandoConfig] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      const salvo = await getBaseUrl();
-      if (salvo) {
-        setBaseUrlState(salvo);
-      }
-      setCarregandoConfig(false);
-    })();
-  }, []);
+  // O endereço da API vem da configuração do build (src/config.ts): o
+  // aluno não digita mais URL nenhuma para vincular o aparelho.
+  const baseUrl = obterApiBaseUrl();
 
   async function handleVincular() {
     setErro(null);
 
-    const baseUrlLimpa = baseUrl.trim();
     const codigoLimpo = codigo.trim().toUpperCase();
 
-    if (!baseUrlLimpa) {
-      setErro('Informe o endereço da API da escola.');
-      return;
-    }
     if (codigoLimpo.length !== 8) {
       setErro('O código de vínculo tem 8 caracteres. Confira com a coordenação.');
       return;
@@ -57,10 +44,9 @@ export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) 
 
     setCarregando(true);
     try {
-      await setBaseUrl(baseUrlLimpa);
       const deviceUuid = await getOrCreateDeviceUuid();
 
-      const resposta = await vincularDispositivo(baseUrlLimpa, codigoLimpo, deviceUuid);
+      const resposta = await vincularDispositivo(baseUrl, codigoLimpo, deviceUuid);
 
       if (!resposta.sucesso || !resposta.dados) {
         setErro(resposta.mensagem || 'Não foi possível vincular o dispositivo.');
@@ -68,7 +54,7 @@ export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) 
       }
 
       const dispositivo: DispositivoVinculado = {
-        baseUrl: baseUrlLimpa,
+        baseUrl: baseUrl,
         deviceUuid,
         deviceSecret: resposta.dados.device_secret,
         idAluno: resposta.dados.id_aluno,
@@ -88,14 +74,6 @@ export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) 
     }
   }
 
-  if (carregandoConfig) {
-    return (
-      <View style={styles.centralizado}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
-  }
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -107,21 +85,6 @@ export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) 
           Vincule este celular ao seu cadastro de aluno usando o código fornecido pela
           coordenação.
         </Text>
-
-        <View style={styles.campo}>
-          <Text style={styles.rotulo}>Endereço da API da escola</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="https://escola-exemplo.com/BioFrequenciaApi/"
-            placeholderTextColor="#9ca3af"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            value={baseUrl}
-            onChangeText={setBaseUrlState}
-            editable={!carregando}
-          />
-        </View>
 
         <View style={styles.campo}>
           <Text style={styles.rotulo}>Código de vínculo (8 caracteres)</Text>

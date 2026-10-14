@@ -49,3 +49,22 @@ export interface DispositivoVinculado {
   idAluno: number;
   nomeAluno: string;
 }
+
+/** Tipo de ocorrência que o aluno envia pelo aplicativo. */
+export type TipoOcorrencia = 'falta' | 'atraso';
+
+/** `dados` de uma resposta bem-sucedida de ocorrencia/enviarOcorrencia.php */
+export interface EnviarOcorrenciaDados {
+  id_ocorrencia: number;
+  criado_em: string;
+  nome_aluno: string;
+  status: 'pendente';
+}
+
+/** O que o aluno preenche depois de confirmar a biometria. */
+export interface FormularioOcorrencia {
+  tipo: TipoOcorrencia;
+  motivo: string;
+  observacao: string;
+  responsavelCiente: boolean;
+}

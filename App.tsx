@@ -5,21 +5,29 @@ import { StatusBar } from 'expo-status-bar';
 import PairingScreen from './src/screens/PairingScreen';
 import CadastroScreen from './src/screens/CadastroScreen';
 import CheckinScreen from './src/screens/CheckinScreen';
+import OcorrenciaScreen from './src/screens/OcorrenciaScreen';
 import { obterDispositivoVinculado } from './src/storage/deviceStorage';
 import type { DispositivoVinculado } from './src/types';
 
 type TelaSemVinculo = 'pareamento' | 'cadastro';
+/** Com o aparelho vinculado: check-in de chegada ou registro de ocorrência. */
+type TelaComVinculo = 'checkin' | 'ocorrencia';
 
 /**
  * App de telas sem biblioteca de navegação: se não houver nada no
  * SecureStore, mostra vínculo (ou cadastro, pra quem ainda não tem
  * registro); assim que um vínculo é salvo (ou carregado ao abrir o app),
  * mostra a tela de check-in.
+ *
+ * Não existe mais tela de configuração pedindo URL e token ao abrir: o
+ * endereço da API vem do build (src/config.ts) e a identidade do aluno
+ * vem do vínculo do aparelho.
  */
 export default function App() {
   const [carregando, setCarregando] = useState(true);
   const [dispositivo, setDispositivo] = useState<DispositivoVinculado | null>(null);
   const [telaSemVinculo, setTelaSemVinculo] = useState<TelaSemVinculo>('pareamento');
+  const [telaComVinculo, setTelaComVinculo] = useState<TelaComVinculo>('checkin');
 
   useEffect(() => {
     (async () => {
@@ -41,7 +49,18 @@ export default function App() {
   return (
     <View style={styles.container}>
       {dispositivo ? (
-        <CheckinScreen dispositivo={dispositivo} onSair={() => setDispositivo(null)} />
+        telaComVinculo === 'ocorrencia' ? (
+          <OcorrenciaScreen
+            dispositivo={dispositivo}
+            onVoltar={() => setTelaComVinculo('checkin')}
+          />
+        ) : (
+          <CheckinScreen
+            dispositivo={dispositivo}
+            onSair={() => setDispositivo(null)}
+            onRegistrarOcorrencia={() => setTelaComVinculo('ocorrencia')}
+          />
+        )
       ) : telaSemVinculo === 'cadastro' ? (
         <CadastroScreen onVoltar={() => setTelaSemVinculo('pareamento')} />
       ) : (
