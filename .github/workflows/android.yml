@@ -1,24 +1,44 @@
 name: Aplicativo Android
 
-# Gera o APK automaticamente. Duas estratégias, porque uma depende de
-# conta externa e a outra não:
+# Valida o app e gera o APK. Duas estratégias de build, porque uma
+# depende de conta externa e a outra não:
 #
 #  - "apk-local": prebuild do Expo + Gradle na própria máquina do CI.
-#    Não precisa de conta nem token nenhum, e o .apk sai como artifact
-#    de cada execução. É o caminho padrão.
+#    Não precisa de conta nem token, e o .apk sai como artifact de cada
+#    execução. Em push na master ele também é publicado na release fixa
+#    "app-mais-recente", que é o link da página de downloads do site.
 #
-#  - "apk-eas": build na nuvem do Expo (EAS). Só roda se o segredo
-#    EXPO_TOKEN estiver configurado no repositório; sem ele o job é
-#    pulado em vez de falhar.
+#  - "apk-eas": build na nuvem do Expo (EAS), com o número de build
+#    controlado pelo EAS (appVersionSource "remote" + autoIncrement).
+#    Só roda se o segredo EXPO_TOKEN estiver configurado. O perfil
+#    "production" (AAB para a loja) só sai pelo botão "Run workflow",
+#    nunca sozinho num push.
+#
+# Endereço da API embutido no APK: variável do repositório API_URL
+# (Settings > Secrets and variables > Actions > Variables) ou, sem ela, a
+# API do Render definida em app.config.ts. O build falha se o endereço for
+# local ou sem HTTPS - era o 10.0.2.2 do emulador que ia dentro do APK.
 on:
   push:
-    branches: [master, main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      perfil_eas:
+        description: 'Perfil do build no EAS'
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validar:
-    name: Verificação de tipos
+    name: Tipos, testes e configuração
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,11 +48,31 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # Endereço da API por tipo de build, biometria e assinatura HMAC
+      # igual à da API (test/*.test.ts).
+      - run: npm test
+      # Versões dos pacotes compatíveis com o SDK do Expo (o expo-doctor
+      # acusava expo e expo-crypto fora da versão esperada).
+      - run: npx expo install --check
+      - name: Configuração de distribuição aponta para a API pública
+        env:
+          APP_ENV: preview
+          API_URL: ${{ vars.API_URL }}
+        run: npx expo config --type public --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const u=JSON.parse(s).extra.apiBaseUrl;console.log('API embutida:',u);if(!u.startsWith('https://'))process.exit(1)})"
 
   apk-local:
     name: Gerar APK (Gradle)
     needs: validar
+    # APK só na master, em pull request e no botão manual (cada build leva
+    # ~15 min do limite de minutos do repositório privado).
+    if: github.ref == 'refs/heads/master' || github.event_name != 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # publicar a release "app-mais-recente"
+    env:
+      APP_ENV: preview
+      API_URL: ${{ vars.API_URL }}
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,8 +93,8 @@ jobs:
       - run: npm ci
 
       # O projeto é Expo "managed" (não tem pasta android/ no
-      # repositório): o prebuild a gera a partir do app.json. Assim o
-      # app.json continua sendo a única fonte de configuração, e nada
+      # repositório): o prebuild a gera a partir do app.json +
+      # app.config.ts. Assim a configuração continua num lugar só, e nada
       # de nativo precisa ser versionado à mão.
       - name: Gerar o projeto Android (expo prebuild)
         run: npx expo prebuild --platform android --no-install
@@ -67,7 +107,8 @@ jobs:
 
       # Sem esta conferência, um Gradle que "passa" mas não produz
       # arquivo nenhum passaria despercebido até alguém tentar baixar.
-      - name: Conferir se o APK existe mesmo
+      # Nome fixo: é o arquivo que a página de downloads do site aponta.
+      - name: Conferir o APK e dar o nome de distribuição
         id: apk
         run: |
           caminho=$(find android/app/build/outputs/apk -name '*.apk' | head -1)
@@ -76,11 +117,11 @@ jobs:
             find android/app/build/outputs -type f | head -20
             exit 1
           fi
-          tamanho=$(stat -c%s "$caminho")
-          echo "APK: $caminho ($((tamanho/1024/1024)) MB)"
           # Um APK é um zip: se não abrir, saiu corrompido.
           unzip -t "$caminho" > /dev/null || { echo "ERRO: APK corrompido"; exit 1; }
-          echo "caminho=$caminho" >> "$GITHUB_OUTPUT"
+          cp "$caminho" biofrequencia.apk
+          echo "APK: $(( $(stat -c%s biofrequencia.apk) / 1024 / 1024 )) MB, versionCode $ANDROID_VERSION_CODE"
+          echo "caminho=biofrequencia.apk" >> "$GITHUB_OUTPUT"
 
       - name: Publicar o APK como artifact
         uses: actions/upload-artifact@v4
@@ -89,9 +130,10 @@ jobs:
           path: ${{ steps.apk.outputs.caminho }}
           retention-days: 30
 
-      # Em push na branch principal o APK também vira uma release fixa,
-      # para o site poder apontar um link estável em vez de depender do
-      # artifact daquela execução (que expira).
+      # Release fixa, para o site apontar um link estável em vez de
+      # depender do artifact daquela execução (que expira). O link só
+      # abre para quem não está logado no GitHub se o repositório for
+      # público; senão, use NEXT_PUBLIC_APK_URL no site.
       - name: Publicar na release "app-mais-recente"
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
@@ -99,14 +141,16 @@ jobs:
           tag_name: app-mais-recente
           name: BioFrequência - app mais recente
           files: ${{ steps.apk.outputs.caminho }}
+          make_latest: true
           body: |
-            APK gerado automaticamente a partir do commit ${{ github.sha }}.
+            APK gerado automaticamente a partir do commit ${{ github.sha }} (versionCode ${{ github.run_number }}).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   apk-eas:
-    name: Gerar APK (EAS, se houver token)
+    name: Gerar no EAS (se houver token)
     needs: validar
+    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +169,12 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - if: steps.tem_token.outputs.ok == 'true'
         run: npm ci
+      # Em push: sempre "preview" (APK interno). "production" só quando
+      # alguém escolhe no botão "Run workflow". O build roda nos
+      # servidores do Expo: para trocar o endereço da API lá, crie a
+      # variável API_URL nas variáveis de ambiente do projeto no EAS
+      # (a variável do GitHub não chega até lá).
       - if: steps.tem_token.outputs.ok == 'true'
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+        run: eas build --platform android --profile "${{ github.event_name == 'workflow_dispatch' && inputs.perfil_eas || 'preview' }}" --non-interactive --no-wait
       - if: steps.tem_token.outputs.ok != 'true'
         run: echo "EXPO_TOKEN não configurado - build pelo EAS pulado (o APK do job apk-local continua valendo)."
