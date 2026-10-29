@@ -7,9 +7,10 @@
  * registrar uma falta, e um token digitado à mão é fácil de errar e de
  * vazar.
  *
- * O endereço agora vem da configuração do build (app.json ->
- * expo.extra.apiBaseUrl), que é definida uma vez por quem gera o APK.
- * Em desenvolvimento, cai no padrão local.
+ * O endereço vem da configuração do build (app.config.ts ->
+ * expo.extra.apiBaseUrl): nos builds de distribuição é a API publicada
+ * (HTTPS), e o build falha se alguém tentar gerar um APK apontando para
+ * um endereço local. Em desenvolvimento, cai no padrão do emulador.
  *
  * Isto NÃO é um segredo: é só onde o servidor está. Nenhum token,
  * senha ou chave fica embutido no aplicativo - o que autentica cada
