@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 import { enviarCheckinBiometrico } from '../api/checkin';
 import { ApiError } from '../api/client';
+import { confirmarIdentidade } from '../biometria';
+import { obterApiBaseUrl } from '../config';
 import { limparVinculo } from '../storage/deviceStorage';
 import type { DispositivoVinculado } from '../types';
 
@@ -25,44 +26,20 @@ export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrenc
     setFeedback(null);
     setEnviando(true);
     try {
-      const temHardware = await LocalAuthentication.hasHardwareAsync();
-      if (!temHardware) {
-        setFeedback({
-          tipo: 'erro',
-          texto: 'Este aparelho não tem sensor de biometria/PIN compatível.',
-        });
-        return;
-      }
-
-      const estaCadastrada = await LocalAuthentication.isEnrolledAsync();
-      if (!estaCadastrada) {
-        setFeedback({
-          tipo: 'erro',
-          texto:
-            'Nenhuma biometria ou PIN/senha cadastrado neste aparelho. Configure a biometria (ou uma senha de bloqueio) nos ajustes do celular antes de fazer o check-in.',
-        });
-        return;
-      }
-
-      const resultadoAuth = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Confirme sua identidade para o check-in',
-        cancelLabel: 'Cancelar',
-        disableDeviceFallback: false,
-      });
-
-      if (!resultadoAuth.success) {
-        setFeedback({
-          tipo: 'erro',
-          texto: 'Autenticação biométrica não confirmada. O check-in não foi enviado.',
-        });
+      const identidade = await confirmarIdentidade('Confirme sua identidade para o check-in');
+      if (!identidade.ok) {
+        setFeedback({ tipo: 'erro', texto: identidade.mensagem });
         return;
       }
 
       // Só monta e assina a requisição DEPOIS que a biometria local
       // confirmou o dono do aparelho - a API nunca vê o template
       // biométrico, só recebe o check-in assinado (ver checkinBiometrico.php).
+      // Endereço do build atual, e não o salvo no vínculo: um aparelho
+      // vinculado com uma versão antiga do app (que apontava para o
+      // emulador ou a rede local) continuava usando aquele endereço.
       const resposta = await enviarCheckinBiometrico(
-        dispositivo.baseUrl,
+        obterApiBaseUrl(),
         dispositivo.deviceUuid,
         dispositivo.deviceSecret,
         'atraso'
