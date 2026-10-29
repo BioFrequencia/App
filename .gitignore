@@ -30,7 +30,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (o template do Expo só ignorava .env*.local: um .env
+# com API_URL de desenvolvimento acabaria versionado)
+.env
 .env*.local
 
 # typescript
