@@ -14,15 +14,6 @@ import type { DispositivoVinculado } from '../types';
 
 const KEY_DEVICE_UUID = 'biofreq_device_uuid';
 const KEY_DEVICE_VINCULADO = 'biofreq_device_vinculado';
-const KEY_BASE_URL = 'biofreq_base_url';
-
-export async function getBaseUrl(): Promise<string | null> {
-  return SecureStore.getItemAsync(KEY_BASE_URL);
-}
-
-export async function setBaseUrl(baseUrl: string): Promise<void> {
-  await SecureStore.setItemAsync(KEY_BASE_URL, baseUrl);
-}
 
 /**
  * O device_uuid é gerado uma única vez por instalação e reaproveitado em
