@@ -41,17 +41,27 @@ nas variáveis de ambiente do projeto no EAS.
 
 ## Builds
 
-- **GitHub Actions** (`.github/workflows/android.yml`): em pull request e
-  na master gera o APK (`biofrequencia.apk`) como artifact; na master
-  também o publica na release `app-mais-recente`, que é o link da página
-  de downloads do site.
+- **GitHub Actions** (`.github/workflows/android.yml`): em pull request,
+  na master e pelo botão "Run workflow" (Actions → Aplicativo Android →
+  escolher a branch) gera o APK (`biofrequencia.apk`) como artifact
+  `biofrequencia-app`; na master também o publica na release
+  `app-mais-recente`, que é o link da página de downloads do site.
 - **EAS** (se o segredo `EXPO_TOKEN` existir): `preview` (APK interno) a
   cada push na master; `production` só pelo botão "Run workflow".
+- **Local, com Docker** (sem Android Studio, Java ou SDK instalados): os
+  mesmos passos do job do GitHub, a partir do código commitado. A primeira
+  execução leva de 20 a 40 minutos (baixa SDK, NDK e dependências do
+  Gradle, que ficam em cache para as próximas).
 
 ```bash
 eas build --platform android --profile preview      # APK para testes
 eas build --platform android --profile production   # AAB para a loja
+sh scripts/build-apk-docker.sh                      # gera apk/biofrequencia.apk
 ```
+
+O APK gerado fora do EAS é assinado com a chave de debug do template do
+Expo: serve para instalar e testar (permitindo "fontes desconhecidas"),
+não para publicar na Play Store.
 
 ## Testes e verificação
 
