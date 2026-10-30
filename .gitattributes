@@ -1,0 +1,5 @@
+# O script de build e o Dockerfile rodam no Linux do contêiner. Com o
+# CRLF que o Git põe no checkout do Windows, o sh quebra ("$'\r': command
+# not found") - por isso ficam sempre com LF.
+*.sh         text eol=lf
+*.Dockerfile text eol=lf

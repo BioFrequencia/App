@@ -26,8 +26,12 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * do CI vem de ANDROID_VERSION_CODE (número da execução do workflow).
  */
 
-/** URL da API no Render (nome do serviço em render.yaml do repositório Api). */
-export const API_URL_PRODUCAO = 'https://biofrequencia-api.onrender.com/';
+/**
+ * URL da API publicada no Render. O serviço foi criado com outro nome que
+ * o do render.yaml ("biofrequencia-api"): era esse endereço inexistente
+ * que ia no APK, e o app mostrava "Resposta inesperada... (HTTP 404)".
+ */
+export const API_URL_PRODUCAO = 'https://api-4ins.onrender.com/';
 /** XAMPP da máquina de desenvolvimento, visto de dentro do emulador Android. */
 export const API_URL_DESENVOLVIMENTO = 'http://10.0.2.2/BioFrequenciaApi/';
 

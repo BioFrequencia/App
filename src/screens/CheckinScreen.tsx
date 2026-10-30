@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { enviarCheckinBiometrico } from '../api/checkin';
-import { ApiError } from '../api/client';
+import { ApiError, pedeNovoLogin } from '../api/client';
 import { confirmarIdentidade } from '../biometria';
 import { obterApiBaseUrl } from '../config';
-import { limparVinculo } from '../storage/deviceStorage';
 import type { DispositivoVinculado } from '../types';
 
 interface Props {
   dispositivo: DispositivoVinculado;
-  /** Chamado depois que o SecureStore é limpo, para voltar à tela de vínculo. */
-  onSair: () => void;
+  /**
+   * Apaga a conexão do celular e volta para o login - pelo botão "Sair",
+   * ou com o aviso da API quando o celular foi desconectado da conta.
+   */
+  onSair: (aviso?: string) => void;
   /** Abre o registro de ocorrência (falta/atraso) com justificativa. */
   onRegistrarOcorrencia: () => void;
 }
@@ -35,8 +37,8 @@ export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrenc
       // Só monta e assina a requisição DEPOIS que a biometria local
       // confirmou o dono do aparelho - a API nunca vê o template
       // biométrico, só recebe o check-in assinado (ver checkinBiometrico.php).
-      // Endereço do build atual, e não o salvo no vínculo: um aparelho
-      // vinculado com uma versão antiga do app (que apontava para o
+      // Endereço do build atual, e não o salvo na conexão: um aparelho
+      // conectado por uma versão antiga do app (que apontava para o
       // emulador ou a rede local) continuava usando aquele endereço.
       const resposta = await enviarCheckinBiometrico(
         obterApiBaseUrl(),
@@ -45,6 +47,10 @@ export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrenc
         'atraso'
       );
 
+      if (pedeNovoLogin(resposta)) {
+        onSair(resposta.mensagem);
+        return;
+      }
       if (!resposta.sucesso) {
         setFeedback({ tipo: 'erro', texto: resposta.mensagem || 'Falha ao registrar o check-in.' });
         return;
@@ -69,18 +75,11 @@ export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrenc
 
   function handleSair() {
     Alert.alert(
-      'Trocar dispositivo',
-      'Isso vai desvincular este celular do seu cadastro. Você vai precisar de um novo código da coordenação para vincular novamente. Continuar?',
+      'Sair da conta',
+      'Para registrar check-ins neste celular de novo, você vai precisar entrar com seu e-mail e senha. Continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: async () => {
-            await limparVinculo();
-            onSair();
-          },
-        },
+        { text: 'Sair', style: 'destructive', onPress: () => onSair() },
       ]
     );
   }
@@ -90,6 +89,7 @@ export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrenc
       <View style={styles.topo}>
         <Text style={styles.saudacao}>Olá,</Text>
         <Text style={styles.nome}>{dispositivo.nomeAluno}</Text>
+        {dispositivo.email ? <Text style={styles.conta}>{dispositivo.email}</Text> : null}
       </View>
 
       <View style={styles.centro}>
@@ -137,7 +137,7 @@ export default function CheckinScreen({ dispositivo, onSair, onRegistrarOcorrenc
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.botaoSair} onPress={handleSair}>
-        <Text style={styles.textoBotaoSair}>Trocar dispositivo / Sair</Text>
+        <Text style={styles.textoBotaoSair}>Sair da conta</Text>
       </TouchableOpacity>
     </View>
   );
@@ -161,6 +161,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  conta: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
   },
   centro: {
     flex: 1,
