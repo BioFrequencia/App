@@ -107,11 +107,15 @@ jobs:
       - name: Gerar o projeto Android (expo prebuild)
         run: npx expo prebuild --platform android --no-install
 
+      # Só as arquiteturas ARM: são as dos celulares. x86/x86_64 (padrão do
+      # template) só servem para emulador, e o app em desenvolvimento roda
+      # pelo "expo start", não por este APK. Metade do código nativo para
+      # compilar: build mais rápido e APK com cerca de metade do tamanho.
       - name: Compilar o APK de release
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 
       # Sem esta conferência, um Gradle que "passa" mas não produz
       # arquivo nenhum passaria despercebido até alguém tentar baixar.
