@@ -1,7 +1,7 @@
 /**
  * Tipos que espelham exatamente o contrato JSON da BioFrequenciaApi.
- * Ver: BioFrequenciaApi/digital/vincularDispositivo.php e
- *      BioFrequenciaApi/digital/checkinBiometrico.php
+ * Ver: BioFrequenciaApi/aluno/entrar.php, aluno/criarConta.php e
+ *      digital/checkinBiometrico.php
  */
 
 /** Envelope padrão de resposta usado por toda a API (helpers/resposta.php). */
@@ -11,11 +11,13 @@ export interface ApiResponse<T> {
   dados: T | null;
 }
 
-/** `dados` de uma resposta bem-sucedida de vincularDispositivo.php */
-export interface VincularDispositivoDados {
+/** `dados` do login (aluno/entrar.php) e do cadastro (aluno/criarConta.php). */
+export interface AcessoAlunoDados {
   id_dispositivo: number;
   id_aluno: number;
   nome_aluno: string;
+  nome_sala: string | null;
+  email: string;
   /** Só é enviado nesta resposta - nunca mais é retornado pela API. */
   device_secret: string;
 }
@@ -27,13 +29,15 @@ export interface CheckinBiometricoDados {
 
 export type TipoCheckin = 'atraso' | 'presenca';
 
-/** O que fica salvo localmente (SecureStore) depois de um vínculo bem-sucedido. */
+/** O que fica salvo localmente (SecureStore) depois do login ou do cadastro. */
 export interface DispositivoVinculado {
   baseUrl: string;
   deviceUuid: string;
   deviceSecret: string;
   idAluno: number;
   nomeAluno: string;
+  /** E-mail da conta. Ausente em celulares conectados pelo antigo código de vínculo. */
+  email?: string;
 }
 
 /** Tipo de ocorrência que o aluno envia pelo aplicativo. */

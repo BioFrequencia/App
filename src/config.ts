@@ -14,7 +14,7 @@
  *
  * Isto NÃO é um segredo: é só onde o servidor está. Nenhum token,
  * senha ou chave fica embutido no aplicativo - o que autentica cada
- * envio é o segredo do dispositivo, trocado no momento do vínculo e
+ * envio é o segredo do dispositivo, recebido no login do aluno e
  * guardado no Keystore/Keychain do aparelho.
  */
 import Constants from 'expo-constants';

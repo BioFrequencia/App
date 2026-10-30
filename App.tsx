@@ -2,34 +2,33 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import PairingScreen from './src/screens/PairingScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import CriarContaScreen from './src/screens/CriarContaScreen';
 import CheckinScreen from './src/screens/CheckinScreen';
 import OcorrenciaScreen from './src/screens/OcorrenciaScreen';
-import { obterDispositivoVinculado } from './src/storage/deviceStorage';
+import { limparVinculo, obterDispositivoVinculado } from './src/storage/deviceStorage';
 import type { DispositivoVinculado } from './src/types';
 
-/** Com o aparelho vinculado: check-in de chegada ou registro de ocorrência. */
-type TelaComVinculo = 'checkin' | 'ocorrencia';
+/** Sem conta conectada: login ou cadastro. */
+type TelaSemConta = 'entrar' | 'criar';
+/** Com o celular conectado: check-in de chegada ou registro de ocorrência. */
+type TelaComConta = 'checkin' | 'ocorrencia';
 
 /**
- * App de telas sem biblioteca de navegação: se não houver nada no
- * SecureStore, mostra o vínculo; assim que um vínculo é salvo (ou
- * carregado ao abrir o app), mostra a tela de check-in.
+ * App de telas sem biblioteca de navegação: sem conexão salva no
+ * SecureStore, mostra o login (ou o cadastro); com ela - salva no login,
+ * no cadastro ou carregada ao abrir o app - mostra o check-in.
  *
- * Não existe tela de configuração pedindo URL e token: o endereço da API
- * vem do build (app.config.ts -> src/config.ts) e a identidade do aluno
- * vem do vínculo do aparelho.
- *
- * O cadastro do aluno é feito pela coordenação (site/desktop), que depois
- * gera o código de vínculo. A tela "Cadastre-se" que existia aqui chamava
- * user/listarSalasPublico.php e aluno/cadastroPendente.php - endpoints que
- * nunca existiram na API (sempre 404) - e ainda pedia ao aluno o endereço
- * do servidor. Foi retirada.
+ * Não existe tela pedindo URL nem token: o endereço da API vem do build
+ * (app.config.ts -> src/config.ts) e a identidade do aluno vem da conta
+ * dele. O código de vínculo gerado pela coordenação deixou de existir.
  */
 export default function App() {
   const [carregando, setCarregando] = useState(true);
   const [dispositivo, setDispositivo] = useState<DispositivoVinculado | null>(null);
-  const [telaComVinculo, setTelaComVinculo] = useState<TelaComVinculo>('checkin');
+  const [telaSemConta, setTelaSemConta] = useState<TelaSemConta>('entrar');
+  const [telaComConta, setTelaComConta] = useState<TelaComConta>('checkin');
+  const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +37,20 @@ export default function App() {
       setCarregando(false);
     })();
   }, []);
+
+  function conectar(novo: DispositivoVinculado) {
+    setAvisoLogin(null);
+    setTelaComConta('checkin');
+    setDispositivo(novo);
+  }
+
+  /** "Sair", ou a API avisou que o celular foi desconectado (aviso). */
+  async function sair(aviso?: string) {
+    await limparVinculo();
+    setAvisoLogin(aviso ?? null);
+    setTelaSemConta('entrar');
+    setDispositivo(null);
+  }
 
   if (carregando) {
     return (
@@ -48,24 +61,27 @@ export default function App() {
     );
   }
 
+  let tela: React.ReactNode;
+  if (dispositivo) {
+    tela =
+      telaComConta === 'ocorrencia' ? (
+        <OcorrenciaScreen dispositivo={dispositivo} onVoltar={() => setTelaComConta('checkin')} onSair={sair} />
+      ) : (
+        <CheckinScreen
+          dispositivo={dispositivo}
+          onSair={sair}
+          onRegistrarOcorrencia={() => setTelaComConta('ocorrencia')}
+        />
+      );
+  } else if (telaSemConta === 'criar') {
+    tela = <CriarContaScreen onConectado={conectar} onVoltar={() => setTelaSemConta('entrar')} />;
+  } else {
+    tela = <LoginScreen onConectado={conectar} onCriarConta={() => setTelaSemConta('criar')} aviso={avisoLogin} />;
+  }
+
   return (
     <View style={styles.container}>
-      {dispositivo ? (
-        telaComVinculo === 'ocorrencia' ? (
-          <OcorrenciaScreen
-            dispositivo={dispositivo}
-            onVoltar={() => setTelaComVinculo('checkin')}
-          />
-        ) : (
-          <CheckinScreen
-            dispositivo={dispositivo}
-            onSair={() => setDispositivo(null)}
-            onRegistrarOcorrencia={() => setTelaComVinculo('ocorrencia')}
-          />
-        )
-      ) : (
-        <PairingScreen onVinculado={setDispositivo} />
-      )}
+      {tela}
       <StatusBar style="auto" />
     </View>
   );

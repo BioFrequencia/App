@@ -20,10 +20,10 @@ function montarUrl(baseUrl: string, caminho: string): string {
 }
 
 /**
- * POST genérico contra a BioFrequenciaApi. Nenhum dos dois endpoints deste
- * app (vincularDispositivo.php, checkinBiometrico.php) usa cabeçalho de
- * autenticação - ver comentários no topo de cada arquivo PHP: a segurança
- * vem do código de vínculo de uso único e, depois, da assinatura HMAC.
+ * POST genérico contra a BioFrequenciaApi. Nenhum endpoint deste app usa
+ * cabeçalho de autenticação - ver comentários no topo de cada arquivo
+ * PHP: o login (e-mail e senha) entrega o segredo do celular, e cada
+ * check-in vai assinado com ele (HMAC).
  */
 // A API gratuita do Render dorme sem uso e leva até ~1 minuto para
 // acordar. Sem limite nenhum, uma conexão presa deixava o botão girando
@@ -66,4 +66,14 @@ export async function postJson<T>(
   }
 
   return json;
+}
+
+/**
+ * A API recusou o envio porque este celular não está mais conectado à
+ * conta (a coordenação desconectou, ou o aluno entrou em outro aparelho):
+ * o app volta para o login em vez de deixar o aluno tentando de novo.
+ */
+export function pedeNovoLogin(resposta: ApiResponse<unknown>): boolean {
+  const dados = resposta.dados as { reconectar?: unknown } | null;
+  return !resposta.sucesso && dados?.reconectar === true;
 }

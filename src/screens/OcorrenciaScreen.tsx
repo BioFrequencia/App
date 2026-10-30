@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 
 import { enviarOcorrencia } from '../api/ocorrencia';
-import { ApiError } from '../api/client';
+import { ApiError, pedeNovoLogin } from '../api/client';
 import { confirmarIdentidade } from '../biometria';
 import { obterApiBaseUrl } from '../config';
 import type { DispositivoVinculado, TipoOcorrencia } from '../types';
@@ -13,6 +13,8 @@ import type { DispositivoVinculado, TipoOcorrencia } from '../types';
 interface Props {
   dispositivo: DispositivoVinculado;
   onVoltar: () => void;
+  /** Volta para o login quando a API avisa que o celular foi desconectado. */
+  onSair: (aviso?: string) => void;
 }
 
 /**
@@ -29,7 +31,7 @@ interface Props {
  */
 type Etapa = 'inicio' | 'formulario' | 'enviado';
 
-export default function OcorrenciaScreen({ dispositivo, onVoltar }: Props) {
+export default function OcorrenciaScreen({ dispositivo, onVoltar, onSair }: Props) {
   const [etapa, setEtapa] = useState<Etapa>('inicio');
   const [verificando, setVerificando] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -63,13 +65,17 @@ export default function OcorrenciaScreen({ dispositivo, onVoltar }: Props) {
     setErro(null);
     setEnviando(true);
     try {
-      // Endereço do build atual, não o salvo no vínculo (ver CheckinScreen).
+      // Endereço do build atual, não o salvo na conexão (ver CheckinScreen).
       const resposta = await enviarOcorrencia(
         obterApiBaseUrl(),
         dispositivo.deviceUuid,
         dispositivo.deviceSecret,
         { tipo, motivo: motivo.trim(), observacao: observacao.trim(), responsavelCiente }
       );
+      if (pedeNovoLogin(resposta)) {
+        onSair(resposta.mensagem);
+        return;
+      }
       if (!resposta.sucesso) {
         setErro(resposta.mensagem);
         return;

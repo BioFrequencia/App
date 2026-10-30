@@ -6,7 +6,7 @@
  * celular é o dono dele (digital, rosto ou o PIN/padrão de bloqueio) e a
  * API nunca recebe imagem, digital ou modelo biométrico. Quem prova ao
  * servidor que o envio veio deste aparelho é a assinatura HMAC com o
- * segredo guardado no Keystore/Keychain no momento do vínculo.
+ * segredo guardado no Keystore/Keychain no login do aluno.
  *
  * O que mudou: as telas exigiam hasHardwareAsync() E isEnrolledAsync()
  * (biometria cadastrada), embora dissessem "biometria ou PIN" - um celular
