@@ -88,7 +88,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Sem "packages", a action instala o padrão dela ("tools
+      # platform-tools"), e o pacote "tools" não existe mais no repositório
+      # do SDK: o job quebrava aqui com "Failed to find package 'tools'".
+      # Instala exatamente o que o React Native 0.86 / Expo 57 usam
+      # (compileSdk 36, build-tools 36.0.0, NDK 27.1, CMake padrão do AGP 8).
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1'
+          log-accepted-android-sdk-licenses: false
 
       - run: npm ci
 
