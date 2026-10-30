@@ -3,10 +3,11 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet,
   Switch, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 import { enviarOcorrencia } from '../api/ocorrencia';
 import { ApiError } from '../api/client';
+import { confirmarIdentidade } from '../biometria';
+import { obterApiBaseUrl } from '../config';
 import type { DispositivoVinculado, TipoOcorrencia } from '../types';
 
 interface Props {
@@ -43,23 +44,9 @@ export default function OcorrenciaScreen({ dispositivo, onVoltar }: Props) {
     setErro(null);
     setVerificando(true);
     try {
-      if (!(await LocalAuthentication.hasHardwareAsync())) {
-        setErro('Este aparelho não tem sensor de biometria nem bloqueio por PIN.');
-        return;
-      }
-      if (!(await LocalAuthentication.isEnrolledAsync())) {
-        setErro(
-          'Nenhuma biometria ou senha de bloqueio cadastrada neste aparelho. Configure nos ajustes do celular e tente de novo.'
-        );
-        return;
-      }
-      const resultado = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Confirme sua identidade para registrar a ocorrência',
-        cancelLabel: 'Cancelar',
-        disableDeviceFallback: false,
-      });
-      if (!resultado.success) {
-        setErro('Identidade não confirmada. Nada foi registrado.');
+      const identidade = await confirmarIdentidade('Confirme sua identidade para registrar a ocorrência');
+      if (!identidade.ok) {
+        setErro(identidade.mensagem);
         return;
       }
       setEtapa('formulario');
@@ -76,8 +63,9 @@ export default function OcorrenciaScreen({ dispositivo, onVoltar }: Props) {
     setErro(null);
     setEnviando(true);
     try {
+      // Endereço do build atual, não o salvo no vínculo (ver CheckinScreen).
       const resposta = await enviarOcorrencia(
-        dispositivo.baseUrl,
+        obterApiBaseUrl(),
         dispositivo.deviceUuid,
         dispositivo.deviceSecret,
         { tipo, motivo: motivo.trim(), observacao: observacao.trim(), responsavelCiente }

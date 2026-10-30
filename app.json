@@ -44,8 +44,7 @@
     "extra": {
       "eas": {
         "projectId": "ece433e7-de7d-4ce3-92fd-a95336b4b213"
-      },
-      "apiBaseUrl": "http://10.0.2.2/BioFrequenciaApi/"
+      }
     }
   }
 }

@@ -20,20 +20,6 @@ export interface VincularDispositivoDados {
   device_secret: string;
 }
 
-/** Ver BioFrequenciaApi/user/listarSalasPublico.php */
-export interface Sala {
-  id_sala: number;
-  nome_sala: string;
-  periodo_sala: string | null;
-}
-
-export const GENEROS_ALUNO = ['Feminino', 'Masculino'] as const;
-
-/** `dados` de uma resposta bem-sucedida de aluno/cadastroPendente.php */
-export interface CadastroPendenteDados {
-  id_aluno_pendente: number;
-}
-
 /** `dados` de uma resposta bem-sucedida de checkinBiometrico.php */
 export interface CheckinBiometricoDados {
   id_checkin: number;

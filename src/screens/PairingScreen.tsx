@@ -20,11 +20,9 @@ import type { DispositivoVinculado } from '../types';
 interface Props {
   /** Chamado depois que o vínculo é salvo com sucesso no SecureStore. */
   onVinculado: (dispositivo: DispositivoVinculado) => void;
-  /** Chamado quando o aluno ainda não tem cadastro e escolhe criar um. */
-  onIrParaCadastro: () => void;
 }
 
-export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) {
+export default function PairingScreen({ onVinculado }: Props) {
   const [codigo, setCodigo] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -124,9 +122,10 @@ export default function PairingScreen({ onVinculado, onIrParaCadastro }: Props) 
           seu tiver expirado.
         </Text>
 
-        <TouchableOpacity style={styles.linkCadastro} onPress={onIrParaCadastro} disabled={carregando}>
-          <Text style={styles.textoLinkCadastro}>Ainda não tenho cadastro? Cadastre-se</Text>
-        </TouchableOpacity>
+        <Text style={styles.avisoCadastro}>
+          Ainda não tem cadastro? Peça à coordenação para cadastrar você e gerar o seu código de
+          vínculo.
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -221,14 +220,10 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
   },
-  linkCadastro: {
+  avisoCadastro: {
     marginTop: 24,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  textoLinkCadastro: {
-    color: '#2563eb',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
   },
 });
