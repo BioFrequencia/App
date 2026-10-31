@@ -1,33 +1,51 @@
-# BioFrequência — App do aluno (Expo / React Native)
+# BioFrequência — App de biometria da coordenação (Expo / React Native)
 
-App Android/iOS para o aluno confirmar a chegada (check-in) e enviar
-faltas/atrasos com justificativa, confirmando a identidade com a
-biometria ou o PIN do próprio celular. Arquitetura geral:
-`docs/ARQUITETURA.md` no repositório da API.
+App Android (tablets e celulares da escola) para a coordenação cadastrar
+a biometria dos alunos e identificá-los na chegada: reconhecido o aluno,
+a presença é registrada sozinha no sistema e aparece no site. Arquitetura
+geral: `docs/ARQUITETURA.md` no repositório da API.
 
 ## Como funciona
 
-1. A coordenação cadastra o aluno no site (nome, turma, data de
-   nascimento).
-2. No primeiro acesso, o aluno toca em **Criar conta** e informa o nome e
-   a data de nascimento iguais aos do cadastro da escola (vale o nome
-   completo ou o primeiro e o último nome), um e-mail e uma senha. A API
-   só cria a conta para um aluno que a escola já cadastrou, uma por aluno.
-   Depois disso ele usa **Entrar** (e-mail e senha) em qualquer celular.
-3. O login conecta o celular à conta: a API devolve um segredo do
-   aparelho, guardado no Keystore/Keychain (`expo-secure-store`); a senha
-   não fica no celular. Um celular por vez - entrar em outro desconecta o
-   anterior, que volta sozinho para a tela de login.
-4. Cada envio pede a confirmação de identidade ao sistema
-   (`src/biometria.ts`): digital, rosto ou o bloqueio de tela. **Nada
-   biométrico sai do celular** - a API recebe só o envio assinado com
-   HMAC-SHA256 (`src/crypto/hmac.ts`).
-5. Check-ins e ocorrências ficam pendentes até a coordenação confirmar no
-   site. Na página do aluno, a coordenação vê a conta, desconecta o
-   celular ou remove a conta (se foi criada por outra pessoa).
+1. **Entrar** com a conta da coordenação - a mesma do site. O app só vê
+   os alunos da escola dessa conta (cada coordenação é uma escola
+   independente). A sessão dura 12 horas e fica no Keystore
+   (`expo-secure-store`); a senha não é guardada.
+2. **Cadastrar biometria**: busca o aluno (nome, turma), confere nome e
+   data de nascimento, registra o consentimento do responsável (LGPD) e
+   tira três fotos do rosto.
+3. **Identificar aluno**: um toque tira a foto; o rosto é reconhecido
+   entre os alunos da escola e a presença do dia fica registrada. Mostra
+   claramente: registrada, já registrada antes, não reconhecido ou foto
+   ruim (sem rosto, mais de um rosto, longe demais).
+4. **Registros do dia**: presentes (horário e forma) e quem ainda falta,
+   com registro manual quando o reconhecimento não resolver.
 
-Isto substituiu o código de vínculo de 8 caracteres que a coordenação
-gerava no site.
+### Reconhecimento facial no aparelho
+
+O modelo roda **no próprio tablet**: `face/motor.js` com a face-api.js
+(detecção, 68 pontos do rosto e rede ResNet-34 que gera um vetor de 128
+números), numa WebView escondida (`src/face/MotorFacial.tsx`). A foto
+nunca sai do aparelho e os arquivos temporários são apagados
+(`src/face/captura.ts`); só o vetor vai para a API, que o guarda
+**cifrado** e faz a comparação entre os alunos da escola. Os modelos
+(~13 MB, licença MIT) vêm do pacote `@vladmandic/face-api` e entram no
+APK pelo plugin `plugins/comMotorFacial.js` durante o `expo prebuild`.
+
+### Digital
+
+O sensor de digital do próprio celular não serve para identificar alunos:
+o Android só confirma o dono do aparelho e não entrega a digital de
+ninguém ao app. A API já guarda digitais cifradas e registra presença pela
+digital; falta integrar o SDK do leitor USB que a escola escolher (o app
+mostra "Leitor de digital não conectado" enquanto isso).
+
+### Prévia no navegador
+
+`API_URL=http://localhost:8080/ npx expo start --web` abre as telas no
+navegador para conferir layout e fluxos (login, alunos, consentimento,
+registros) contra a API local. O reconhecimento facial e a câmera de
+verdade só funcionam no APK Android.
 
 ## Endereço da API
 
@@ -79,12 +97,14 @@ não para publicar na Play Store.
 ```bash
 npm ci
 npm run typecheck
-npm test                 # test/*.test.ts: endereço por build, biometria, HMAC
+npm test                 # test/*.test.ts: endereço, sessão, datas, busca, motor facial
 npx expo install --check # versões compatíveis com o SDK
 ```
 
-## O que só pode ser validado num celular físico
+## O que só pode ser validado num aparelho Android
 
-Criar conta, entrar, check-in e ocorrência ponta a ponta contra a API
-publicada, e os casos de biometria: celular sem biometria só com PIN,
-cancelar a confirmação, bloqueio por muitas tentativas.
+O reconhecimento de rostos de verdade: carregar o motor (alguns segundos
+ao abrir o app), cadastrar e reconhecer alunos com a câmera, em luz boa e
+ruim, e o tempo de cada identificação. O limite de distância (0,5 na API,
+`DISTANCIA_MAXIMA_FACIAL`) deve ser calibrado com fotos reais da escola
+antes do uso diário.
