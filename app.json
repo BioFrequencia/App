@@ -2,8 +2,8 @@
   "expo": {
     "name": "BioFrequência",
     "slug": "biofrequencia-mobile",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "2.0.0",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
@@ -20,13 +20,13 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.CAMERA"
       ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -34,17 +34,15 @@
     },
     "plugins": [
       [
-        "expo-local-authentication",
+        "expo-camera",
         {
-          "faceIDPermission": "O BioFrequência usa o Face ID para confirmar sua identidade ao fazer o check-in de chegada."
+          "cameraPermission": "O BioFrequência usa a câmera para cadastrar e reconhecer o rosto dos alunos. As fotos não saem do aparelho.",
+          "recordAudioAndroid": false
         }
       ],
-      [
-        "expo-secure-store",
-        {
-          "faceIDPermission": "O BioFrequência usa o Face ID para proteger os dados de vínculo deste dispositivo."
-        }
-      ]
+      "expo-secure-store",
+      "expo-font",
+      "./plugins/comMotorFacial"
     ],
     "extra": {
       "eas": {

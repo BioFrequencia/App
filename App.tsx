@@ -1,100 +1,138 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useState } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
+import { SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 
-import LoginScreen from './src/screens/LoginScreen';
-import CriarContaScreen from './src/screens/CriarContaScreen';
-import CheckinScreen from './src/screens/CheckinScreen';
-import OcorrenciaScreen from './src/screens/OcorrenciaScreen';
-import { limparVinculo, obterDispositivoVinculado } from './src/storage/deviceStorage';
-import type { DispositivoVinculado } from './src/types';
-
-/** Sem conta conectada: login ou cadastro. */
-type TelaSemConta = 'entrar' | 'criar';
-/** Com o celular conectado: check-in de chegada ou registro de ocorrência. */
-type TelaComConta = 'checkin' | 'ocorrencia';
+import { definirAoExpirar, definirToken } from './src/api/client';
+import { MotorFacialProvider } from './src/face/MotorFacial';
+import type { Navegacao, Rota } from './src/navegacao';
+import { apagarSessao, carregarSessao } from './src/sessao';
+import type { Sessao } from './src/types';
+import { Carregando } from './src/ui/componentes';
+import { cores } from './src/ui/tema';
+import LoginTela from './src/telas/LoginTela';
+import InicioTela from './src/telas/InicioTela';
+import IdentificarTela from './src/telas/IdentificarTela';
+import AlunosTela from './src/telas/AlunosTela';
+import AlunoTela from './src/telas/AlunoTela';
+import CapturaFacialTela from './src/telas/CapturaFacialTela';
+import RegistrosTela from './src/telas/RegistrosTela';
 
 /**
- * App de telas sem biblioteca de navegação: sem conexão salva no
- * SecureStore, mostra o login (ou o cadastro); com ela - salva no login,
- * no cadastro ou carregada ao abrir o app - mostra o check-in.
+ * App de biometria da coordenação: entra com a conta da coordenação (a
+ * mesma do site), cadastra a biometria dos alunos e identifica cada um na
+ * chegada, registrando a presença sozinho no sistema.
  *
- * Não existe tela pedindo URL nem token: o endereço da API vem do build
- * (app.config.ts -> src/config.ts) e a identidade do aluno vem da conta
- * dele. O código de vínculo gerado pela coordenação deixou de existir.
+ * Telas numa pilha simples, sem biblioteca de navegação; o botão "voltar"
+ * do Android desempilha. O motor facial é montado uma vez, aqui, para os
+ * modelos já estarem carregados quando a coordenação entrar.
  */
 export default function App() {
-  const [carregando, setCarregando] = useState(true);
-  const [dispositivo, setDispositivo] = useState<DispositivoVinculado | null>(null);
-  const [telaSemConta, setTelaSemConta] = useState<TelaSemConta>('entrar');
-  const [telaComConta, setTelaComConta] = useState<TelaComConta>('checkin');
+  const [fontesProntas] = useFonts({
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+  });
+  // undefined: ainda lendo a sessão guardada.
+  const [sessao, setSessao] = useState<Sessao | null | undefined>(undefined);
   const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
+  const [pilha, setPilha] = useState<Rota[]>([{ nome: 'inicio' }]);
 
   useEffect(() => {
-    (async () => {
-      const salvo = await obterDispositivoVinculado();
-      setDispositivo(salvo);
-      setCarregando(false);
-    })();
+    carregarSessao().then((guardada) => {
+      definirToken(guardada?.token ?? null);
+      setSessao(guardada);
+    });
   }, []);
 
-  function conectar(novo: DispositivoVinculado) {
-    setAvisoLogin(null);
-    setTelaComConta('checkin');
-    setDispositivo(novo);
-  }
+  const encerrar = useCallback(async (aviso: string | null) => {
+    await apagarSessao();
+    definirToken(null);
+    setAvisoLogin(aviso);
+    setPilha([{ nome: 'inicio' }]);
+    setSessao(null);
+  }, []);
 
-  /** "Sair", ou a API avisou que o celular foi desconectado (aviso). */
-  async function sair(aviso?: string) {
-    await limparVinculo();
-    setAvisoLogin(aviso ?? null);
-    setTelaSemConta('entrar');
-    setDispositivo(null);
-  }
+  useEffect(() => {
+    definirAoExpirar(() => encerrar('Sua sessão terminou. Entre de novo com a conta da coordenação.'));
+    return () => definirAoExpirar(null);
+  }, [encerrar]);
 
-  if (carregando) {
-    return (
-      <View style={styles.centralizado}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <StatusBar style="auto" />
-      </View>
-    );
-  }
+  const voltar = useCallback(() => setPilha((atual) => (atual.length > 1 ? atual.slice(0, -1) : atual)), []);
+
+  useEffect(() => {
+    const assinatura = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pilha.length > 1) {
+        voltar();
+        return true;
+      }
+      return false;
+    });
+    return () => assinatura.remove();
+  }, [pilha.length, voltar]);
 
   let tela: React.ReactNode;
-  if (dispositivo) {
-    tela =
-      telaComConta === 'ocorrencia' ? (
-        <OcorrenciaScreen dispositivo={dispositivo} onVoltar={() => setTelaComConta('checkin')} onSair={sair} />
-      ) : (
-        <CheckinScreen
-          dispositivo={dispositivo}
-          onSair={sair}
-          onRegistrarOcorrencia={() => setTelaComConta('ocorrencia')}
-        />
-      );
-  } else if (telaSemConta === 'criar') {
-    tela = <CriarContaScreen onConectado={conectar} onVoltar={() => setTelaSemConta('entrar')} />;
+  if (!fontesProntas || sessao === undefined) {
+    tela = <Carregando />;
+  } else if (sessao === null) {
+    tela = (
+      <LoginTela
+        aviso={avisoLogin}
+        aoEntrar={(nova) => {
+          setAvisoLogin(null);
+          setPilha([{ nome: 'inicio' }]);
+          setSessao(nova);
+        }}
+      />
+    );
   } else {
-    tela = <LoginScreen onConectado={conectar} onCriarConta={() => setTelaSemConta('criar')} aviso={avisoLogin} />;
+    const nav: Navegacao = {
+      sessao,
+      navegar: (rota) => setPilha((atual) => [...atual, rota]),
+      voltar,
+      sair: () => encerrar(null),
+    };
+    const rota = pilha[pilha.length - 1];
+    switch (rota.nome) {
+      case 'identificar':
+        tela = <IdentificarTela nav={nav} />;
+        break;
+      case 'alunos':
+        tela = <AlunosTela nav={nav} />;
+        break;
+      case 'aluno':
+        tela = <AlunoTela key={rota.aluno.id_aluno} nav={nav} aluno={rota.aluno} />;
+        break;
+      case 'capturaFacial':
+        tela = <CapturaFacialTela nav={nav} aluno={rota.aluno} />;
+        break;
+      case 'registros':
+        tela = <RegistrosTela nav={nav} />;
+        break;
+      default:
+        tela = <InicioTela nav={nav} />;
+    }
   }
 
   return (
-    <View style={styles.container}>
-      {tela}
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <MotorFacialProvider>
+        <View style={estilos.raiz}>{tela}</View>
+      </MotorFacialProvider>
+    </SafeAreaProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centralizado: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
+const estilos = StyleSheet.create({
+  raiz: { flex: 1, backgroundColor: cores.nevoa100 },
 });

@@ -1,7 +1,7 @@
 /**
- * Tipos que espelham exatamente o contrato JSON da BioFrequenciaApi.
- * Ver: BioFrequenciaApi/aluno/entrar.php, aluno/criarConta.php e
- *      digital/checkinBiometrico.php
+ * Tipos que espelham o contrato JSON da BioFrequenciaApi usado pelo app
+ * da coordenação. Ver na API: user/selectCoord.php, biometria/*.php e
+ * presenca/*.php.
  */
 
 /** Envelope padrão de resposta usado por toda a API (helpers/resposta.php). */
@@ -11,50 +11,73 @@ export interface ApiResponse<T> {
   dados: T | null;
 }
 
-/** `dados` do login (aluno/entrar.php) e do cadastro (aluno/criarConta.php). */
-export interface AcessoAlunoDados {
-  id_dispositivo: number;
+/** Sessão guardada no aparelho depois do login da coordenação. */
+export interface Sessao {
+  token: string;
+  /** Segundos desde 1970 (UTC), como o "exp" do token. */
+  expiraEm: number;
+  nomeCoordenacao: string;
+  emailCoordenacao: string;
+  nomeEscola: string;
+}
+
+/** `dados` do login (user/selectCoord.php). */
+export interface LoginDados {
+  id_coordenacao: number;
+  nome_coordenacao: string;
+  email_coordenacao: string;
+  nome_escola: string;
+  token: string;
+  expira_em: number;
+}
+
+export interface Turma {
+  id_sala: number;
+  nome_sala: string;
+  periodo_sala: string | null;
+}
+
+/** Linha de biometria/alunos.php. */
+export interface AlunoBiometria {
   id_aluno: number;
   nome_aluno: string;
-  nome_sala: string | null;
-  email: string;
-  /** Só é enviado nesta resposta - nunca mais é retornado pela API. */
-  device_secret: string;
+  dta_nasc_aluno: string;
+  id_sala: number;
+  nome_sala: string;
+  tem_facial: boolean;
+  facial_atualizada_em: string | null;
+  digitais: number;
+  consentimento_responsavel: string | null;
+  consentimento_em: string | null;
+  presenca_hoje: string | null;
+  presenca_metodo: MetodoPresenca | null;
 }
 
-/** `dados` de uma resposta bem-sucedida de checkinBiometrico.php */
-export interface CheckinBiometricoDados {
-  id_checkin: number;
+export type MetodoPresenca = 'facial' | 'digital' | 'manual';
+
+export interface Presenca {
+  nova: boolean;
+  id_presenca: number;
+  registrada_em: string;
+  metodo: MetodoPresenca;
 }
 
-export type TipoCheckin = 'atraso' | 'presenca';
-
-/** O que fica salvo localmente (SecureStore) depois do login ou do cadastro. */
-export interface DispositivoVinculado {
-  baseUrl: string;
-  deviceUuid: string;
-  deviceSecret: string;
-  idAluno: number;
-  nomeAluno: string;
-  /** E-mail da conta. Ausente em celulares conectados pelo antigo código de vínculo. */
-  email?: string;
-}
-
-/** Tipo de ocorrência que o aluno envia pelo aplicativo. */
-export type TipoOcorrencia = 'falta' | 'atraso';
-
-/** `dados` de uma resposta bem-sucedida de ocorrencia/enviarOcorrencia.php */
-export interface EnviarOcorrenciaDados {
-  id_ocorrencia: number;
-  criado_em: string;
+export interface AlunoResumo {
+  id_aluno: number;
   nome_aluno: string;
-  status: 'pendente';
+  id_sala: number;
+  nome_sala: string;
 }
 
-/** O que o aluno preenche depois de confirmar a biometria. */
-export interface FormularioOcorrencia {
-  tipo: TipoOcorrencia;
-  motivo: string;
-  observacao: string;
-  responsavelCiente: boolean;
+/** `dados` de biometria/identificarFacial.php. */
+export type IdentificacaoDados =
+  | { reconhecido: false }
+  | { reconhecido: true; aluno: AlunoResumo; presenca: Presenca; distancia: number };
+
+/** `dados` de presenca/listar.php. */
+export interface PresencasDoDia {
+  data: string;
+  total_alunos: number;
+  presentes: (AlunoResumo & { id_presenca: number; registrada_em: string; metodo: MetodoPresenca })[];
+  ausentes: AlunoResumo[];
 }
