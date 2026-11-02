@@ -5,8 +5,9 @@ name: Aplicativo Android
 #
 #  - "apk-local": prebuild do Expo + Gradle na própria máquina do CI.
 #    Não precisa de conta nem token, e o .apk sai como artifact de cada
-#    execução. Em push na master ele também é publicado na release fixa
-#    "app-mais-recente", que é o link da página de downloads do site.
+#    execução. Na master (push ou botão "Run workflow") ele também é
+#    publicado na release fixa "app-mais-recente", que é o link da página
+#    de downloads do site.
 #
 #  - "apk-eas": build na nuvem do Expo (EAS), com o número de build
 #    controlado pelo EAS (appVersionSource "remote" + autoIncrement).
@@ -34,15 +35,19 @@ permissions:
 
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  # Em branch e PR, um push novo cancela o build anterior, que ficou velho.
+  # Na master, nunca: um "Run workflow" logo depois do merge cancelou o
+  # build do merge no meio da compilação e o site ficou sem o APK novo. Lá
+  # os builds esperam na fila, e o último publica por cima.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   validar:
     name: Tipos, testes e configuração
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -74,16 +79,16 @@ jobs:
       API_URL: ${{ vars.API_URL }}
       ANDROID_VERSION_CODE: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
 
       # O runner do GitHub já traz o SDK do Android; só o JDK precisa
       # ser fixado, porque o AGP exige uma versão específica.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -93,7 +98,7 @@ jobs:
       # do SDK: o job quebrava aqui com "Failed to find package 'tools'".
       # Instala exatamente o que o React Native 0.86 / Expo 57 usam
       # (compileSdk 36, build-tools 36.0.0, NDK 27.1, CMake padrão do AGP 8).
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1'
           log-accepted-android-sdk-licenses: false
@@ -136,7 +141,7 @@ jobs:
           echo "caminho=biofrequencia.apk" >> "$GITHUB_OUTPUT"
 
       - name: Publicar o APK como artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: biofrequencia-app
           path: ${{ steps.apk.outputs.caminho }}
@@ -145,10 +150,12 @@ jobs:
       # Release fixa, para o site apontar um link estável em vez de
       # depender do artifact daquela execução (que expira). O link só
       # abre para quem não está logado no GitHub se o repositório for
-      # público; senão, use NEXT_PUBLIC_APK_URL no site.
+      # público; senão, use NEXT_PUBLIC_APK_URL no site. Publica no push da
+      # master e também no "Run workflow" nela (antes só no push: o build
+      # manual compilava e não atualizava o site).
       - name: Publicar na release "app-mais-recente"
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: app-mais-recente
           name: BioFrequência - app mais recente
@@ -165,16 +172,16 @@ jobs:
     if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Verificar se há EXPO_TOKEN
         id: tem_token
         run: echo "ok=${{ secrets.EXPO_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.tem_token.outputs.ok == 'true'
         with:
           node-version: '22'
           cache: npm
-      - uses: expo/expo-github-action@v8
+      - uses: expo/expo-github-action@v9
         if: steps.tem_token.outputs.ok == 'true'
         with:
           eas-version: latest
