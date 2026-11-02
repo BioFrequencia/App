@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -33,6 +34,20 @@ export function Icone({ nome, tamanho = 20, cor = cores.tinta700 }: { nome: Nome
     return <MaterialCommunityIcons name={nome.slice(4) as 'fingerprint' | 'face-recognition'} size={tamanho} color={cor} />;
   }
   return <Feather name={nome as NomeFeather} size={tamanho} color={cor} />;
+}
+
+/**
+ * Símbolo do Biofrequência: a moldura de reconhecimento com o check
+ * (assets/marca/simbolo.svg). "branco" é a versão para fundo índigo.
+ */
+export function Simbolo({ tamanho = 24, branco = false }: { tamanho?: number; branco?: boolean }) {
+  return (
+    <Image
+      source={branco ? require('../../assets/marca/simbolo-branco.png') : require('../../assets/marca/simbolo.png')}
+      style={{ width: tamanho, height: tamanho }}
+      accessibilityIgnoresInvertColors
+    />
+  );
 }
 
 export function Tela({ children, fundo = cores.nevoa100 }: { children: React.ReactNode; fundo?: string }) {

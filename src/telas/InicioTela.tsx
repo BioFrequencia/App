@@ -6,7 +6,7 @@ import { mensagemDeErro } from '../api/client';
 import { resumirAlunos, type ResumoEscola } from '../alunosRegras';
 import { useMotorFacial } from '../face/MotorFacial';
 import type { Navegacao } from '../navegacao';
-import { Aviso, Cartao, Conteudo, Icone, Tela, useLayout, type NomeIcone } from '../ui/componentes';
+import { Aviso, Cartao, Conteudo, Icone, Simbolo, Tela, useLayout, type NomeIcone } from '../ui/componentes';
 import { dataPorExtenso, hojeNaEscola, primeiroNome } from '../ui/formatar';
 import { cores, espaco, fontes, raio } from '../ui/tema';
 
@@ -57,6 +57,10 @@ export default function InicioTela({ nav }: { nav: Navegacao }) {
     <Tela>
       <ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={carregar} tintColor={cores.indigo} />}>
         <Conteudo style={estilos.conteudo}>
+          <View style={estilos.marca}>
+            <Simbolo tamanho={22} />
+            <Text style={estilos.marcaNome}>Biofrequência</Text>
+          </View>
           <View style={estilos.topo}>
             <View style={estilos.flex}>
               <Text style={estilos.data}>{dataPorExtenso(hojeNaEscola())}</Text>
@@ -148,6 +152,8 @@ function AcaoSecundaria({ icone, titulo, texto, aoPressionar }: { icone: NomeIco
 const estilos = StyleSheet.create({
   flex: { flex: 1 },
   conteudo: { paddingTop: espaco.lg, paddingBottom: espaco.xxl },
+  marca: { flexDirection: 'row', alignItems: 'center', gap: espaco.sm, marginBottom: espaco.lg },
+  marcaNome: { fontFamily: fontes.titulo, fontSize: 16, color: cores.tinta900, letterSpacing: -0.3 },
   topo: { flexDirection: 'row', alignItems: 'flex-start', gap: espaco.md, marginBottom: espaco.xl },
   data: { fontFamily: fontes.textoSemi, fontSize: 12, color: cores.tinta500, textTransform: 'uppercase', letterSpacing: 0.8 },
   saudacao: { fontFamily: fontes.titulo, fontSize: 28, color: cores.tinta900, letterSpacing: -0.6, marginTop: 6 },

@@ -13,7 +13,7 @@
     "android": {
       "package": "com.biofrequencia.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#452FF6",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -42,6 +42,14 @@
       ],
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#452FF6",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
       "./plugins/comMotorFacial"
     ],
     "extra": {
