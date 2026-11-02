@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import type { WebView, WebViewMessageEvent } from 'react-native-webview';
 
 import { MotorWebView } from './MotorWebView';
-import { lerMensagemMotor, type ResultadoFacial } from './protocolo';
+import { lerMensagemMotor, pedidoAoMotor, type FotoDoRosto, type ResultadoFacial } from './protocolo';
 
 /**
  * Motor de reconhecimento facial: uma WebView escondida com a face-api.js
@@ -20,8 +20,8 @@ interface Motor {
   estado: EstadoMotor;
   /** Detalhe técnico do erro de carregamento, para o suporte. */
   detalhe: string | null;
-  /** Foto (JPEG em base64) -> vetor do rosto, ou o motivo da recusa. */
-  processar: (base64Jpeg: string) => Promise<ResultadoFacial>;
+  /** Foto (src/face/captura.ts) -> vetor do rosto, ou o motivo da recusa. */
+  processar: (foto: FotoDoRosto) => Promise<ResultadoFacial>;
   reiniciar: () => void;
 }
 
@@ -37,6 +37,8 @@ export function MotorFacialProvider({ children }: { children: React.ReactNode })
   const pendentes = useRef(new Map<number, (resultado: ResultadoFacial) => void>());
   const proximoId = useRef(1);
   const estadoAtual = useRef<EstadoMotor>(disponivel ? 'carregando' : 'indisponivel');
+  /** Onde o motor calcula (webgl = placa de vídeo, cpu = processador, bem mais lento). */
+  const backend = useRef<string | undefined>(undefined);
   const [estado, setEstado] = useState<EstadoMotor>(estadoAtual.current);
   const [detalhe, setDetalhe] = useState<string | null>(null);
   const [chave, setChave] = useState(0);
@@ -52,6 +54,7 @@ export function MotorFacialProvider({ children }: { children: React.ReactNode })
       const mensagem = lerMensagemMotor(evento.nativeEvent.data);
       if (!mensagem) return;
       if (mensagem.tipo === 'pronto') {
+        backend.current = mensagem.backend;
         mudarEstado('pronto');
       } else if (mensagem.tipo === 'erro_carregar') {
         mudarEstado('erro', mensagem.mensagem);
@@ -67,7 +70,7 @@ export function MotorFacialProvider({ children }: { children: React.ReactNode })
   );
 
   const processar = useCallback(
-    (base64Jpeg: string) =>
+    (foto: FotoDoRosto) =>
       new Promise<ResultadoFacial>((resolve) => {
         if (estadoAtual.current !== 'pronto') {
           resolve({ ok: false, motivo: estadoAtual.current === 'carregando' ? 'carregando' : 'indisponivel' });
@@ -75,10 +78,10 @@ export function MotorFacialProvider({ children }: { children: React.ReactNode })
         }
         const id = proximoId.current++;
         pendentes.current.set(id, resolve);
-        webview.current?.postMessage(JSON.stringify({ tipo: 'processar', id, imagem: `data:image/jpeg;base64,${base64Jpeg}` }));
+        webview.current?.postMessage(pedidoAoMotor(id, foto));
         setTimeout(() => {
           if (pendentes.current.delete(id)) {
-            resolve({ ok: false, motivo: 'tempo' });
+            resolve({ ok: false, motivo: 'tempo', detalhe: backend.current });
           }
         }, TEMPO_LIMITE_MS);
       }),

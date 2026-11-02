@@ -15,7 +15,15 @@ export type MotivoFalha =
 
 export type ResultadoFacial =
   | { ok: true; descritor: number[]; confianca: number }
-  | { ok: false; motivo: MotivoFalha; mensagem?: string };
+  | { ok: false; motivo: MotivoFalha; mensagem?: string; detalhe?: string };
+
+/** Foto pronta para o motor (src/face/captura.ts). */
+export interface FotoDoRosto {
+  /** JPEG reduzido, em base64. */
+  base64: string;
+  /** Se a tela estava em pé: a foto em pé tem a mesma orientação, e o motor usa isso para achar a foto gravada deitada. */
+  retrato: boolean;
+}
 
 export type MensagemMotor =
   | { tipo: 'pronto'; backend?: string }
@@ -26,6 +34,11 @@ export type MensagemMotor =
 export const TAMANHO_DESCRITOR = 128;
 
 const MOTIVOS: MotivoFalha[] = ['carregando', 'sem_rosto', 'varios_rostos', 'longe', 'imagem', 'erro', 'tempo', 'indisponivel'];
+
+/** Pedido de processamento de uma foto, como o motor espera. */
+export function pedidoAoMotor(id: number, foto: FotoDoRosto): string {
+  return JSON.stringify({ tipo: 'processar', id, imagem: `data:image/jpeg;base64,${foto.base64}`, retrato: foto.retrato });
+}
 
 /** Mensagem vinda da WebView, validada; null se não for uma mensagem do motor. */
 export function lerMensagemMotor(texto: string): MensagemMotor | null {
@@ -64,7 +77,12 @@ export function lerMensagemMotor(texto: string): MensagemMotor | null {
   return {
     tipo: 'resultado',
     id: bruto.id,
-    resultado: { ok: false, motivo, mensagem: typeof bruto.mensagem === 'string' ? bruto.mensagem : undefined },
+    resultado: {
+      ok: false,
+      motivo,
+      mensagem: typeof bruto.mensagem === 'string' ? bruto.mensagem : undefined,
+      detalhe: typeof bruto.detalhe === 'string' ? bruto.detalhe : undefined,
+    },
   };
 }
 
@@ -88,4 +106,14 @@ export function textoDaFalha(motivo: MotivoFalha): string {
     default:
       return 'Falha no reconhecimento facial. Tente de novo.';
   }
+}
+
+/**
+ * A orientação da recusa e, numa segunda linha, o detalhe técnico do motor
+ * (tamanho da foto, processador, maior confiança) - é o que o suporte
+ * precisa para entender por que um aparelho não acha rostos.
+ */
+export function textoDaRecusa(resultado: { motivo: MotivoFalha; detalhe?: string }): string {
+  const texto = textoDaFalha(resultado.motivo);
+  return resultado.detalhe ? `${texto}\nDetalhe técnico: ${resultado.detalhe}` : texto;
 }

@@ -32,6 +32,15 @@ nunca sai do aparelho e os arquivos temporários são apagados
 (~13 MB, licença MIT) vêm do pacote `@vladmandic/face-api` e entram no
 APK pelo plugin `plugins/comMotorFacial.js` durante o `expo prebuild`.
 
+Antes de calcular o vetor, o motor confere a foto: se a câmera a gravou
+deitada (comum em tablets), a orientação da tela diz como endireitá-la;
+colegas ao fundo são ignorados quando o rosto da frente é bem maior; e, se
+a placa de vídeo do aparelho calcular errado, o motor passa para o
+processador (bem mais lento). Quando a foto é recusada, a tela mostra uma
+linha de "Detalhe técnico" (tamanho da foto, `webgl` ou `cpu`, maior
+confiança do detector), que ajuda a entender um aparelho que não acha
+rostos. As decisões do motor são testadas em `test/motorDecisoes.test.ts`.
+
 ### Digital
 
 O sensor de digital do próprio celular não serve para identificar alunos:

@@ -6,7 +6,7 @@ import { cadastrarFacial } from '../api/biometria';
 import { mensagemDeErro, SessaoExpiradaError } from '../api/client';
 import { fotografar } from '../face/captura';
 import { useMotorFacial } from '../face/MotorFacial';
-import { textoDaFalha } from '../face/protocolo';
+import { textoDaRecusa } from '../face/protocolo';
 import type { Navegacao } from '../navegacao';
 import type { AlunoBiometria } from '../types';
 import { Aviso, Botao, Cabecalho, Cartao, Conteudo, Icone, Tela, useLayout } from '../ui/componentes';
@@ -64,7 +64,7 @@ export default function CapturaFacialTela({ nav, aluno }: { nav: Navegacao; alun
     try {
       const rosto = await motor.processar(await fotografar(camera.current));
       if (!rosto.ok) {
-        setErro(textoDaFalha(rosto.motivo));
+        setErro(textoDaRecusa(rosto));
         return;
       }
       const novas = [...amostras, rosto.descritor];

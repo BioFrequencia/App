@@ -6,7 +6,7 @@ import { identificarFacial } from '../api/biometria';
 import { mensagemDeErro, SessaoExpiradaError } from '../api/client';
 import { fotografar } from '../face/captura';
 import { useMotorFacial } from '../face/MotorFacial';
-import { textoDaFalha } from '../face/protocolo';
+import { textoDaRecusa } from '../face/protocolo';
 import { resultadoDaIdentificacao, resultadoSomeSozinho, TEMPO_RESULTADO_MS, type ResultadoTela } from '../identificacaoRegras';
 import type { Navegacao } from '../navegacao';
 import { Aviso, Botao, Cabecalho, Cartao, Conteudo, Icone, Tela, useLayout, type NomeIcone } from '../ui/componentes';
@@ -52,7 +52,7 @@ export default function IdentificarTela({ nav }: { nav: Navegacao }) {
       const foto = await fotografar(camera.current);
       const rosto = await motor.processar(foto);
       if (!rosto.ok) {
-        mostrar({ tipo: 'foto', texto: textoDaFalha(rosto.motivo) });
+        mostrar({ tipo: 'foto', texto: textoDaRecusa(rosto) });
         return;
       }
       mostrar(resultadoDaIdentificacao(await identificarFacial(rosto.descritor)));
