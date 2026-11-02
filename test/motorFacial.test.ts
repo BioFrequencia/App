@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { lerMensagemMotor, TAMANHO_DESCRITOR, textoDaFalha } from '../src/face/protocolo.ts';
+import { lerMensagemMotor, pedidoAoMotor, TAMANHO_DESCRITOR, textoDaFalha, textoDaRecusa } from '../src/face/protocolo.ts';
 import { resultadoDaIdentificacao, resultadoSomeSozinho } from '../src/identificacaoRegras.ts';
 
 const descritor = Array.from({ length: TAMANHO_DESCRITOR }, (_, i) => Math.sin(i) / 10);
@@ -13,7 +13,17 @@ test('mensagens do motor facial (face/motor.js)', () => {
     tipo: 'resultado', id: 3, resultado: { ok: true, descritor, confianca: 0.97 },
   });
   assert.deepEqual(lerMensagemMotor('{"tipo":"resultado","id":4,"ok":false,"motivo":"varios_rostos"}'), {
-    tipo: 'resultado', id: 4, resultado: { ok: false, motivo: 'varios_rostos', mensagem: undefined },
+    tipo: 'resultado', id: 4, resultado: { ok: false, motivo: 'varios_rostos', mensagem: undefined, detalhe: undefined },
+  });
+  const comDetalhe = lerMensagemMotor(JSON.stringify({ tipo: 'resultado', id: 5, ok: false, motivo: 'sem_rosto', detalhe: '720x960 · webgl · maior confiança 0.32' }));
+  assert.deepEqual(comDetalhe, {
+    tipo: 'resultado', id: 5, resultado: { ok: false, motivo: 'sem_rosto', mensagem: undefined, detalhe: '720x960 · webgl · maior confiança 0.32' },
+  });
+});
+
+test('pedido ao motor leva a foto e a orientação da tela', () => {
+  assert.deepEqual(JSON.parse(pedidoAoMotor(7, { base64: 'QUJD', retrato: true })), {
+    tipo: 'processar', id: 7, imagem: 'data:image/jpeg;base64,QUJD', retrato: true,
   });
 });
 
@@ -34,6 +44,14 @@ test('cada recusa da foto tem uma orientação para quem está operando', () => 
   assert.match(textoDaFalha('sem_rosto'), /contorno/);
   assert.match(textoDaFalha('varios_rostos'), /um aluno por vez/);
   assert.match(textoDaFalha('longe'), /aproximar/);
+});
+
+test('recusa mostra o detalhe técnico do motor numa segunda linha, quando houver', () => {
+  assert.equal(
+    textoDaRecusa({ motivo: 'sem_rosto', detalhe: '720x960 · webgl · maior confiança 0.32' }),
+    `${textoDaFalha('sem_rosto')}\nDetalhe técnico: 720x960 · webgl · maior confiança 0.32`
+  );
+  assert.equal(textoDaRecusa({ motivo: 'longe' }), textoDaFalha('longe'));
 });
 
 test('resultado da identificação para a tela', () => {
