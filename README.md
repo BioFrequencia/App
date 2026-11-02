@@ -49,12 +49,22 @@ ninguém ao app. A API já guarda digitais cifradas e registra presença pela
 digital; falta integrar o SDK do leitor USB que a escola escolher (o app
 mostra "Leitor de digital não conectado" enquanto isso).
 
+### Marca
+
+A logo é a moldura de reconhecimento com o check (mesma do site). O
+desenho original fica em `assets/marca/simbolo.svg`; os PNGs saem dele:
+ícone do app (`assets/icon.png`), ícone adaptável do Android
+(`android-icon-*`, fundo índigo `#452FF6`), favicon da prévia web e o
+símbolo das telas (`assets/marca/simbolo*.png`, componente `Simbolo` em
+`src/ui/componentes.tsx`).
+
 ### Prévia no navegador
 
 `API_URL=http://localhost:8080/ npx expo start --web` abre as telas no
 navegador para conferir layout e fluxos (login, alunos, consentimento,
 registros) contra a API local. O reconhecimento facial e a câmera de
-verdade só funcionam no APK Android.
+verdade só funcionam no APK Android. O endereço entra no pacote na hora
+de montar: ao trocar o `API_URL`, rode com `--clear`.
 
 ## Endereço da API
 

@@ -6,7 +6,7 @@ import { definirToken, mensagemDeErro } from '../api/client';
 import { salvarSessao } from '../sessao';
 import { sessaoDoLogin } from '../sessaoRegras';
 import type { Sessao } from '../types';
-import { Aviso, Botao, Campo, Icone, Tela, useLayout } from '../ui/componentes';
+import { Aviso, Botao, Campo, Icone, Simbolo, Tela, useLayout } from '../ui/componentes';
 import { cores, espaco, fontes, raio } from '../ui/tema';
 
 interface Props {
@@ -56,7 +56,7 @@ export default function LoginTela({ aoEntrar, aviso }: Props) {
   const marca = (
     <View style={[estilos.marca, tablet && estilos.marcaTablet]}>
       <View style={[estilos.logo, tablet && estilos.logoTablet]}>
-        <Icone nome="mdi:face-recognition" tamanho={26} cor="#ffffff" />
+        <Simbolo tamanho={40} branco />
       </View>
       <Text style={[estilos.marcaNome, tablet && estilos.textoClaro]}>Biofrequência</Text>
       <Text style={[estilos.marcaFrase, tablet && estilos.textoClaroSuave]}>Biometria e presença para a coordenação</Text>
