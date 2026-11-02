@@ -54,8 +54,10 @@ mostra "Leitor de digital não conectado" enquanto isso).
 A logo é a moldura de reconhecimento com o check (mesma do site). O
 desenho original fica em `assets/marca/simbolo.svg`; os PNGs saem dele:
 ícone do app (`assets/icon.png`), ícone adaptável do Android
-(`android-icon-*`, fundo índigo `#452FF6`), favicon da prévia web e o
-símbolo das telas (`assets/marca/simbolo*.png`, componente `Simbolo` em
+(`android-icon-*`, fundo índigo `#452FF6`), a abertura
+(`assets/splash-icon.png`, plugin `expo-splash-screen`, também sobre o
+índigo), o favicon da prévia web e o símbolo das telas
+(`assets/marca/simbolo*.png`, componente `Simbolo` em
 `src/ui/componentes.tsx`).
 
 ### Prévia no navegador
