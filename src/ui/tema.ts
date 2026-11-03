@@ -24,6 +24,9 @@ export const cores = {
   perigo: '#e4453a',
   perigo100: '#fdecec',
   perigoEscuro: '#b42318',
+  // Os mesmos do aviso do site (--aviso-fundo / --aviso-texto).
+  aviso100: '#fffbeb',
+  avisoEscuro: '#78350f',
 } as const;
 
 export const raio = { pequeno: 8, medio: 14, grande: 22 } as const;

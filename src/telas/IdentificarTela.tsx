@@ -159,6 +159,7 @@ function SeletorMetodo({ metodo, aoMudar }: { metodo: Metodo; aoMudar: (m: Metod
 
 const VISUAL_RESULTADO: Record<ResultadoTela['tipo'], { fundo: string; cor: string; icone: NomeIcone; titulo: string }> = {
   registrada: { fundo: cores.esmeralda100, cor: cores.esmeraldaEscuro, icone: 'check-circle', titulo: 'Presença registrada' },
+  atrasada: { fundo: cores.aviso100, cor: cores.avisoEscuro, icone: 'clock', titulo: 'Entrada atrasada registrada' },
   ja_registrada: { fundo: cores.indigo50, cor: cores.indigo600, icone: 'clock', titulo: 'Presença já registrada hoje' },
   nao_reconhecido: { fundo: cores.perigo100, cor: cores.perigoEscuro, icone: 'x-circle', titulo: 'Aluno não reconhecido' },
   foto: { fundo: cores.agua100, cor: cores.aguaEscuro, icone: 'alert-triangle', titulo: 'A foto não serviu' },
@@ -175,7 +176,7 @@ function CartaoResultado({
   aoRegistrarManual: () => void;
 }) {
   const visual = VISUAL_RESULTADO[resultado.tipo];
-  const reconhecido = resultado.tipo === 'registrada' || resultado.tipo === 'ja_registrada';
+  const reconhecido = resultado.tipo === 'registrada' || resultado.tipo === 'atrasada' || resultado.tipo === 'ja_registrada';
   return (
     <View style={[estilos.resultado, { backgroundColor: visual.fundo }]} accessibilityLiveRegion="polite">
       <View style={estilos.resultadoTopo}>
@@ -186,8 +187,13 @@ function CartaoResultado({
         <>
           <Text style={estilos.resultadoNome}>{resultado.nome}</Text>
           <Text style={[estilos.resultadoDetalhe, { color: visual.cor }]}>
-            {resultado.turma} · {resultado.tipo === 'registrada' ? 'às' : 'registrada às'} {formatarHora(resultado.registradaEm)}
+            {resultado.turma} · {resultado.tipo === 'ja_registrada' ? 'registrada às' : 'às'} {formatarHora(resultado.registradaEm)}
           </Text>
+          {resultado.tipo === 'atrasada' ? (
+            <Text style={[estilos.resultadoDetalhe, { color: visual.cor }]}>
+              A aula começa às {resultado.inicioAula} (tolerância de {resultado.tolerancia} min).
+            </Text>
+          ) : null}
         </>
       ) : (
         <>
