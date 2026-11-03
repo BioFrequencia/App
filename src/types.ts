@@ -70,9 +70,22 @@ export interface AlunoResumo {
 }
 
 /** `dados` de biometria/identificarFacial.php. */
+/**
+ * Como a API leu a presença nova (migração 008): no horário, entrada
+ * atrasada (depois da tolerância - a API já registra o atraso), depois
+ * do fim da aula ou num dia sem aula. null quando a API não conseguiu
+ * conferir; ausente em API antiga.
+ */
+export interface EntradaDaPresenca {
+  situacao: 'no_horario' | 'atrasada' | 'fora_do_horario' | 'sem_aula';
+  horario_turma: { inicio: string; fim: string };
+  tolerancia_minutos: number;
+  id_atraso: number | null;
+}
+
 export type IdentificacaoDados =
   | { reconhecido: false }
-  | { reconhecido: true; aluno: AlunoResumo; presenca: Presenca; distancia: number };
+  | { reconhecido: true; aluno: AlunoResumo; presenca: Presenca; distancia: number; entrada?: EntradaDaPresenca | null };
 
 /** `dados` de presenca/listar.php. */
 export interface PresencasDoDia {
