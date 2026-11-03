@@ -6,7 +6,7 @@ import { definirToken, mensagemDeErro } from '../api/client';
 import { salvarSessao } from '../sessao';
 import { sessaoDoLogin } from '../sessaoRegras';
 import type { Sessao } from '../types';
-import { Aviso, Botao, Campo, Icone, Simbolo, Tela, useLayout } from '../ui/componentes';
+import { Aviso, Botao, Campo, CampoSenha, Icone, Simbolo, Tela, useLayout } from '../ui/componentes';
 import { cores, espaco, fontes, raio } from '../ui/tema';
 
 interface Props {
@@ -97,11 +97,9 @@ export default function LoginTela({ aoEntrar, aviso }: Props) {
               editable={!carregando}
               returnKeyType="next"
             />
-            <Campo
+            <CampoSenha
               rotulo="Senha"
               placeholder="Sua senha"
-              secureTextEntry
-              autoCapitalize="none"
               autoComplete="password"
               textContentType="password"
               value={senha}

@@ -154,22 +154,53 @@ export function Botao({ titulo, aoPressionar, variante = 'primario', icone, carr
 interface CampoProps extends TextInputProps {
   rotulo: string;
   ajuda?: string;
+  /** Algo dentro do campo, à direita (o olhinho da senha). */
+  direita?: React.ReactNode;
 }
 
-export function Campo({ rotulo, ajuda, style, ...props }: CampoProps) {
+export function Campo({ rotulo, ajuda, direita, style, ...props }: CampoProps) {
   const [focado, setFocado] = React.useState(false);
   return (
     <View style={estilos.campo}>
       <Text style={estilos.campoRotulo}>{rotulo}</Text>
-      <TextInput
-        placeholderTextColor={cores.tinta300}
-        {...props}
-        onFocus={(e) => { setFocado(true); props.onFocus?.(e); }}
-        onBlur={(e) => { setFocado(false); props.onBlur?.(e); }}
-        style={[estilos.campoInput, focado && estilos.campoInputFocado, style]}
-      />
+      <View>
+        <TextInput
+          placeholderTextColor={cores.tinta300}
+          {...props}
+          onFocus={(e) => { setFocado(true); props.onFocus?.(e); }}
+          onBlur={(e) => { setFocado(false); props.onBlur?.(e); }}
+          style={[estilos.campoInput, focado && estilos.campoInputFocado, direita ? estilos.campoInputComDireita : null, style]}
+        />
+        {direita ? <View style={estilos.campoDireita}>{direita}</View> : null}
+      </View>
       {ajuda ? <Text style={estilos.campoAjuda}>{ajuda}</Text> : null}
     </View>
+  );
+}
+
+/** Campo de senha com o "olhinho" para ver o que foi digitado (o mesmo do site). */
+export function CampoSenha(props: Omit<CampoProps, 'secureTextEntry' | 'direita'>) {
+  const [visivel, setVisivel] = React.useState(false);
+  const rotulo = visivel ? 'Esconder a senha' : 'Mostrar a senha';
+  return (
+    <Campo
+      {...props}
+      secureTextEntry={!visivel}
+      autoCapitalize="none"
+      autoCorrect={false}
+      direita={
+        <Pressable
+          onPress={() => setVisivel((atual) => !atual)}
+          style={estilos.campoOlho}
+          accessibilityRole="button"
+          accessibilityLabel={rotulo}
+          accessibilityState={{ selected: visivel }}
+          hitSlop={8}
+        >
+          <Icone nome={visivel ? 'eye-off' : 'eye'} tamanho={20} cor={visivel ? cores.indigo : cores.tinta500} />
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -293,6 +324,9 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 14, fontFamily: fontes.texto, fontSize: 16, color: cores.tinta900,
   },
   campoInputFocado: { borderColor: cores.indigo },
+  campoInputComDireita: { paddingRight: 52 },
+  campoDireita: { position: 'absolute', right: 4, top: 0, bottom: 0, justifyContent: 'center' },
+  campoOlho: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: raio.pequeno },
   campoAjuda: { fontFamily: fontes.texto, fontSize: 12, color: cores.tinta500, marginTop: 6 },
   aviso: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: raio.medio, padding: 14 },
   avisoTexto: { flex: 1, fontFamily: fontes.textoMedio, fontSize: 14, lineHeight: 20 },
