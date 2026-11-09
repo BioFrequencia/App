@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { entrar } from '../api/coordenacao';
+import { entrar, pedirNovaSenha } from '../api/coordenacao';
 import { definirToken, mensagemDeErro } from '../api/client';
+import { problemaDoEmailDaConta } from '../mensagensRegras';
 import { salvarSessao } from '../sessao';
 import { sessaoDoLogin } from '../sessaoRegras';
 import type { Sessao } from '../types';
@@ -28,6 +29,47 @@ export default function LoginTela({ aoEntrar, aviso }: Props) {
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // "Esqueci minha senha": o mesmo cartão troca de formulário.
+  const [modo, setModo] = useState<'entrar' | 'senha'>('entrar');
+  const [linkEnviado, setLinkEnviado] = useState<string | null>(null);
+
+  function irPara(novo: 'entrar' | 'senha') {
+    setErro(null);
+    setLinkEnviado(null);
+    setModo(novo);
+  }
+
+  // No pedido de senha nova, o "voltar" do Android volta para o login (e não fecha o app).
+  useEffect(() => {
+    if (modo !== 'senha') return undefined;
+    const assinatura = BackHandler.addEventListener('hardwareBackPress', () => {
+      irPara('entrar');
+      return true;
+    });
+    return () => assinatura.remove();
+  }, [modo]);
+
+  async function pedirLink() {
+    const problema = problemaDoEmailDaConta(email);
+    if (problema) {
+      setErro(problema);
+      return;
+    }
+    setErro(null);
+    setCarregando(true);
+    try {
+      const resposta = await pedirNovaSenha(email);
+      if (!resposta.sucesso) {
+        setErro(resposta.mensagem || 'Não foi possível pedir a senha nova agora. Tente de novo em alguns minutos.');
+        return;
+      }
+      setLinkEnviado(resposta.mensagem);
+    } catch (e) {
+      setErro(mensagemDeErro(e, 'Não foi possível pedir a senha nova agora. Tente de novo em alguns minutos.'));
+    } finally {
+      setCarregando(false);
+    }
+  }
 
   async function enviar() {
     if (!email.trim() || !senha) {
@@ -78,45 +120,91 @@ export default function LoginTela({ aoEntrar, aviso }: Props) {
       <KeyboardAvoidingView style={estilos.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={[estilos.rolagem, tablet && estilos.rolagemTablet]} keyboardShouldPersistTaps="handled">
           {marca}
-          <View style={[estilos.formulario, tablet && estilos.formularioTablet]}>
-            <Text style={estilos.titulo}>Entrar</Text>
-            <Text style={estilos.subtitulo}>Use a mesma conta da coordenação do site.</Text>
+          {modo === 'senha' ? (
+            <View style={[estilos.formulario, tablet && estilos.formularioTablet]}>
+              <Text style={estilos.titulo}>Criar uma senha nova</Text>
+              <Text style={estilos.subtitulo}>
+                Mandamos um link para o e-mail da sua conta. Ele abre a página do site onde você cria a senha nova; depois, todos
+                os aparelhos conectados saem da conta.
+              </Text>
 
-            {aviso ? <Aviso tipo="info" style={estilos.aviso}>{aviso}</Aviso> : null}
+              {linkEnviado ? (
+                <>
+                  <Aviso tipo="sucesso" style={estilos.aviso}>{linkEnviado}</Aviso>
+                  <Botao titulo="Voltar para o login" icone="arrow-left" variante="secundario" aoPressionar={() => irPara('entrar')} />
+                </>
+              ) : (
+                <>
+                  <Campo
+                    rotulo="E-mail"
+                    placeholder="coordenacao@escola.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="username"
+                    value={email}
+                    onChangeText={setEmail}
+                    editable={!carregando}
+                    returnKeyType="send"
+                    onSubmitEditing={pedirLink}
+                  />
 
-            <Campo
-              rotulo="E-mail"
-              placeholder="coordenacao@escola.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="username"
-              value={email}
-              onChangeText={setEmail}
-              editable={!carregando}
-              returnKeyType="next"
-            />
-            <CampoSenha
-              rotulo="Senha"
-              placeholder="Sua senha"
-              autoComplete="password"
-              textContentType="password"
-              value={senha}
-              onChangeText={setSenha}
-              editable={!carregando}
-              returnKeyType="go"
-              onSubmitEditing={enviar}
-            />
+                  {erro ? <Aviso tipo="erro" style={estilos.aviso}>{erro}</Aviso> : null}
 
-            {erro ? <Aviso tipo="erro" style={estilos.aviso}>{erro}</Aviso> : null}
+                  <Botao titulo="Enviar o link" icone="mail" grande carregando={carregando} aoPressionar={pedirLink} />
 
-            <Botao titulo="Entrar" icone="log-in" grande carregando={carregando} aoPressionar={enviar} />
+                  <Pressable onPress={() => irPara('entrar')} style={estilos.link} accessibilityRole="button" hitSlop={8}>
+                    <Text style={estilos.linkTexto}>Voltar para o login</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          ) : (
+            <View style={[estilos.formulario, tablet && estilos.formularioTablet]}>
+              <Text style={estilos.titulo}>Entrar</Text>
+              <Text style={estilos.subtitulo}>Use a mesma conta da coordenação do site.</Text>
 
-            <Text style={estilos.rodape}>
-              No primeiro acesso do dia o servidor pode levar até um minuto para responder.
-            </Text>
-          </View>
+              {aviso ? <Aviso tipo="info" style={estilos.aviso}>{aviso}</Aviso> : null}
+
+              <Campo
+                rotulo="E-mail"
+                placeholder="coordenacao@escola.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="username"
+                value={email}
+                onChangeText={setEmail}
+                editable={!carregando}
+                returnKeyType="next"
+              />
+              <CampoSenha
+                rotulo="Senha"
+                placeholder="Sua senha"
+                autoComplete="password"
+                textContentType="password"
+                value={senha}
+                onChangeText={setSenha}
+                editable={!carregando}
+                returnKeyType="go"
+                onSubmitEditing={enviar}
+              />
+
+              {erro ? <Aviso tipo="erro" style={estilos.aviso}>{erro}</Aviso> : null}
+
+              <Botao titulo="Entrar" icone="log-in" grande carregando={carregando} aoPressionar={enviar} />
+
+              <Pressable onPress={() => irPara('senha')} style={estilos.link} accessibilityRole="button" hitSlop={8}>
+                <Text style={estilos.linkTexto}>Esqueci minha senha</Text>
+              </Pressable>
+
+              <Text style={estilos.rodape}>
+                No primeiro acesso do dia o servidor pode levar até um minuto para responder.
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </Tela>
@@ -149,5 +237,7 @@ const estilos = StyleSheet.create({
   titulo: { fontFamily: fontes.titulo, fontSize: 26, color: cores.tinta900, letterSpacing: -0.4 },
   subtitulo: { fontFamily: fontes.texto, fontSize: 14, color: cores.tinta500, marginTop: 4, marginBottom: espaco.xl },
   aviso: { marginBottom: espaco.lg },
+  link: { alignSelf: 'center', marginTop: espaco.lg, paddingVertical: espaco.xs, paddingHorizontal: espaco.sm },
+  linkTexto: { fontFamily: fontes.textoSemi, fontSize: 14, color: cores.indigo600 },
   rodape: { fontFamily: fontes.texto, fontSize: 12, lineHeight: 17, color: cores.tinta500, textAlign: 'center', marginTop: espaco.lg },
 });
