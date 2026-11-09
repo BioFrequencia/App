@@ -10,8 +10,8 @@ import { formatarData } from '../ui/formatar';
 import { cores, espaco, fontes } from '../ui/tema';
 
 /**
- * Ficha de biometria de um aluno: conferência da identidade, consentimento
- * do responsável (LGPD) e cadastro facial/digital.
+ * Ficha de um aluno: conferência da identidade, mensagem aos responsáveis,
+ * consentimento do responsável (LGPD) e cadastro facial/digital.
  */
 export default function AlunoTela({ nav, aluno: inicial }: { nav: Navegacao; aluno: AlunoBiometria }) {
   const { tablet } = useLayout();
@@ -155,20 +155,31 @@ export default function AlunoTela({ nav, aluno: inicial }: { nav: Navegacao; alu
     </Cartao>
   );
 
+  const mensagem = (
+    <Cartao style={estilos.cartao}>
+      <TituloSecao>Aviso aos responsáveis</TituloSecao>
+      <Text style={estilosTexto.corpo}>
+        Mande uma mensagem por WhatsApp ou e-mail aos responsáveis deste aluno, com os mesmos modelos do site.
+      </Text>
+      <Botao titulo="Escrever mensagem" icone="send" variante="claro" aoPressionar={() => nav.navegar({ nome: 'mensagem', aluno })} />
+    </Cartao>
+  );
+
   return (
     <Tela>
       <Conteudo style={estilos.flex}>
-        <Cabecalho titulo={aluno.nome_aluno} subtitulo="Ficha de biometria" aoVoltar={nav.voltar} />
+        <Cabecalho titulo={aluno.nome_aluno} subtitulo="Ficha do aluno" aoVoltar={nav.voltar} />
         <ScrollView contentContainerStyle={estilos.rolagem} keyboardShouldPersistTaps="handled">
           {aviso ? <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso> : null}
           {tablet ? (
             <View style={estilos.colunas}>
-              <View style={estilos.coluna}>{identidade}{consentimento}</View>
+              <View style={estilos.coluna}>{identidade}{mensagem}{consentimento}</View>
               <View style={estilos.coluna}>{facial}{digital}</View>
             </View>
           ) : (
             <>
               {identidade}
+              {mensagem}
               {consentimento}
               {facial}
               {digital}
