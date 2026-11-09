@@ -37,7 +37,7 @@ export function Icone({ nome, tamanho = 20, cor = cores.tinta700 }: { nome: Nome
 }
 
 /**
- * Símbolo do Biofrequência: a moldura de reconhecimento com o check
+ * Símbolo do BioFrequência: a moldura de reconhecimento com o check
  * (assets/marca/simbolo.svg). "branco" é a versão para fundo índigo.
  */
 export function Simbolo({ tamanho = 24, branco = false }: { tamanho?: number; branco?: boolean }) {

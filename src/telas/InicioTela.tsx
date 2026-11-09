@@ -59,7 +59,7 @@ export default function InicioTela({ nav }: { nav: Navegacao }) {
         <Conteudo style={estilos.conteudo}>
           <View style={estilos.marca}>
             <Simbolo tamanho={22} />
-            <Text style={estilos.marcaNome}>Biofrequência</Text>
+            <Text style={estilos.marcaNome}>BioFrequência</Text>
           </View>
           <View style={estilos.topo}>
             <View style={estilos.flex}>
