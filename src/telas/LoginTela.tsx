@@ -100,7 +100,7 @@ export default function LoginTela({ aoEntrar, aviso }: Props) {
       <View style={[estilos.logo, tablet && estilos.logoTablet]}>
         <Simbolo tamanho={40} branco />
       </View>
-      <Text style={[estilos.marcaNome, tablet && estilos.textoClaro]}>Biofrequência</Text>
+      <Text style={[estilos.marcaNome, tablet && estilos.textoClaro]}>BioFrequência</Text>
       <Text style={[estilos.marcaFrase, tablet && estilos.textoClaroSuave]}>Biometria e presença para a coordenação</Text>
       {tablet ? (
         <View style={estilos.recursos}>
