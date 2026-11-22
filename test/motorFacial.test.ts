@@ -58,7 +58,8 @@ test('resultado da identificação para a tela', () => {
   const aluno = { id_aluno: 1, nome_aluno: 'Ana Teste', id_sala: 2, nome_sala: '1A' };
   const presenca = { nova: true, id_presenca: 9, registrada_em: '2026-10-30 10:42:00', metodo: 'facial' as const };
   const registrada = resultadoDaIdentificacao({ sucesso: true, mensagem: '', dados: { reconhecido: true, aluno, presenca, distancia: 0.3 } });
-  assert.deepEqual(registrada, { tipo: 'registrada', nome: 'Ana Teste', turma: '1A', registradaEm: '2026-10-30 10:42:00' });
+  // idPresenca e podeDesfazer: para o "Não é este aluno" (API antiga, sem pode_desfazer: sem o botão).
+  assert.deepEqual(registrada, { tipo: 'registrada', nome: 'Ana Teste', turma: '1A', registradaEm: '2026-10-30 10:42:00', idPresenca: 9, podeDesfazer: false });
   assert.equal(resultadoSomeSozinho(registrada), true);
 
   const repetida = resultadoDaIdentificacao({ sucesso: true, mensagem: '', dados: { reconhecido: true, aluno, presenca: { ...presenca, nova: false }, distancia: 0.3 } });
