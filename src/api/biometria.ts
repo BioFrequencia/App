@@ -1,5 +1,5 @@
 import { postJson } from './client';
-import type { AlunoBiometria, ApiResponse, IdentificacaoDados } from '../types';
+import type { AlunoBiometria, AlunoResumo, ApiResponse, EntradaDaPresenca, Presenca } from '../types';
 
 /** Identificador do modelo do motor facial (face/motor.js), gravado com o cadastro. */
 export const MODELO_FACIAL = 'faceapi-resnet34-128';
@@ -44,9 +44,62 @@ export function cadastrarFacial(
   });
 }
 
-/** Identificação 1:N; reconhecido, a API já grava a presença do dia. */
-export function identificarFacial(descritor: number[]): Promise<ApiResponse<IdentificacaoDados & { sem_cadastros?: boolean }>> {
-  return postJson('biometria/identificarFacial.php', { embedding: descritor, modelo: MODELO_FACIAL });
+/**
+ * Fotos tiradas em seguida a cada identificação. A API só grava a presença
+ * sozinha quando todas apontam o mesmo aluno com semelhança alta; com uma
+ * foto só ela é mais exigente.
+ */
+export const FOTOS_POR_IDENTIFICACAO = 2;
+
+/**
+ * Identificação incerta (migração 012): a API achou um candidato, mas sem
+ * certeza - NADA foi gravado. Quem está no tablet confirma ou recusa em
+ * confirmarIdentificacao(), dentro de expira_em_segundos.
+ */
+export interface ConfirmacaoIdentificacao {
+  id_identificacao: number;
+  aluno: AlunoResumo;
+  motivo: string;
+  expira_em_segundos: number;
+}
+
+/** Presença gravada pela identificação (ou pela confirmação). */
+export interface PresencaIdentificada {
+  reconhecido: true;
+  aluno: AlunoResumo;
+  presenca: Presenca;
+  /** Como a API leu a entrada (no horário, atrasada...); ausente em API antiga. */
+  entrada?: EntradaDaPresenca | null;
+  distancia?: number;
+  /** Presença nova: quem está no tablet pode desfazer se o nome não for o do aluno. */
+  pode_desfazer?: boolean;
+}
+
+/** `dados` de biometria/identificarFacial.php. */
+export type RespostaIdentificacao = (
+  | PresencaIdentificada
+  | { reconhecido: false; motivo?: string; confirmacao?: ConfirmacaoIdentificacao }
+) & { sem_cadastros?: boolean };
+
+/** `dados` de biometria/confirmarIdentificacao.php. */
+export type RespostaConfirmacao = { registrado: false } | (PresencaIdentificada & { registrado: true });
+
+/**
+ * Identificação 1:N com as fotos tiradas em seguida. Só com certeza a API
+ * grava a presença do dia; com dúvida ela devolve `confirmacao` e não grava
+ * nada.
+ */
+export function identificarFacial(descritores: number[][]): Promise<ApiResponse<RespostaIdentificacao>> {
+  return postJson('biometria/identificarFacial.php', { embeddings: descritores, modelo: MODELO_FACIAL });
+}
+
+/**
+ * Resposta de quem está no tablet à identificação incerta: true grava a
+ * presença do aluno que a API guardou na tentativa (não um id mandado
+ * pelo app); false não grava nada.
+ */
+export function confirmarIdentificacao(idIdentificacao: number, confirmar: boolean): Promise<ApiResponse<RespostaConfirmacao>> {
+  return postJson('biometria/confirmarIdentificacao.php', { id_identificacao: idIdentificacao, confirmar });
 }
 
 export function excluirBiometria(idAluno: number, tipo: 'facial' | 'digital' | 'todas'): Promise<ApiResponse<{ registros_apagados: number }>> {
