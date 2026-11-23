@@ -7,6 +7,7 @@ export type Rota =
   | { nome: 'alunos' }
   | { nome: 'aluno'; aluno: AlunoBiometria }
   | { nome: 'capturaFacial'; aluno: AlunoBiometria }
+  | { nome: 'mensagem'; aluno: AlunoBiometria }
   | { nome: 'registros' };
 
 export interface Navegacao {

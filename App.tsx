@@ -23,6 +23,7 @@ import IdentificarTela from './src/telas/IdentificarTela';
 import AlunosTela from './src/telas/AlunosTela';
 import AlunoTela from './src/telas/AlunoTela';
 import CapturaFacialTela from './src/telas/CapturaFacialTela';
+import MensagemTela from './src/telas/MensagemTela';
 import RegistrosTela from './src/telas/RegistrosTela';
 
 /**
@@ -115,6 +116,9 @@ export default function App() {
         break;
       case 'capturaFacial':
         tela = <CapturaFacialTela nav={nav} aluno={rota.aluno} />;
+        break;
+      case 'mensagem':
+        tela = <MensagemTela key={rota.aluno.id_aluno} nav={nav} aluno={rota.aluno} />;
         break;
       case 'registros':
         tela = <RegistrosTela nav={nav} />;

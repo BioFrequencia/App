@@ -10,7 +10,9 @@ geral: `docs/ARQUITETURA.md` no repositório da API.
 1. **Entrar** com a conta da coordenação - a mesma do site. O app só vê
    os alunos da escola dessa conta (cada coordenação é uma escola
    independente). A sessão dura 12 horas e fica no Keystore
-   (`expo-secure-store`); a senha não é guardada.
+   (`expo-secure-store`); a senha não é guardada. "Esqueci minha senha"
+   pede à API o link de senha nova (`conta/esqueciSenha.php`), que chega
+   por e-mail e abre a página do site onde a pessoa cria a senha.
 2. **Cadastrar biometria**: busca o aluno (nome, turma), confere nome e
    data de nascimento, registra o consentimento do responsável (LGPD) e
    tira três fotos do rosto.
@@ -20,6 +22,13 @@ geral: `docs/ARQUITETURA.md` no repositório da API.
    ruim (sem rosto, mais de um rosto, longe demais).
 4. **Registros do dia**: presentes (horário e forma) e quem ainda falta,
    com registro manual quando o reconhecimento não resolver.
+5. **Mensagem aos responsáveis**: na ficha do aluno, "Escrever mensagem"
+   faz o mesmo que Notificações > Enviar mensagem no site - escolher quem
+   recebe e por qual canal (WhatsApp, e-mail), partir de um modelo,
+   conferir a prévia montada pela API e enviar (`notificacao/*.php`). Sem
+   WhatsApp automático na API, o resultado traz "Abrir no WhatsApp" com a
+   mensagem pronta. A chave do envio impede que um toque repetido mande
+   duas vezes.
 
 ### Reconhecimento facial no aparelho
 

@@ -9,6 +9,14 @@ export function entrar(email: string, senha: string): Promise<ApiResponse<LoginD
   return postJson<LoginDados>('user/selectCoord.php', { email: email.trim(), senha, cliente: 'app' }, false);
 }
 
+/**
+ * "Esqueci minha senha": a API manda ao e-mail o link da página do site
+ * onde a pessoa cria a senha nova (a resposta é a mesma com ou sem conta).
+ */
+export function pedirNovaSenha(email: string): Promise<ApiResponse<null>> {
+  return postJson<null>('conta/esqueciSenha.php', { email: email.trim() }, false);
+}
+
 /** Turmas da escola de quem está logado. */
 export function listarTurmas(): Promise<ApiResponse<Turma[]>> {
   return postJson<Turma[]>('user/listarSalas.php');
