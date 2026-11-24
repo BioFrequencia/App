@@ -20,6 +20,17 @@ export function sessaoDoLogin(dados: LoginDados): Sessao {
   };
 }
 
+/**
+ * A conta da equipe do sistema fica separada das escolas: ela só usa a
+ * Administração do site e não registra presença em tablet nenhum. null:
+ * a conta pode usar o app.
+ */
+export function recusaDaContaNoApp(dados: LoginDados): string | null {
+  return dados.administrador
+    ? 'Esta é a conta da equipe do sistema, que só usa a Administração do site. No tablet, entre com a conta da coordenação de uma escola.'
+    : null;
+}
+
 export function sessaoValida(sessao: unknown, agoraMs: number = Date.now()): sessao is Sessao {
   if (!sessao || typeof sessao !== 'object') return false;
   const s = sessao as Partial<Sessao>;

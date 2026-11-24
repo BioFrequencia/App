@@ -4,7 +4,9 @@ import type { CameraView } from 'expo-camera';
 
 import { confirmarIdentificacao, FOTOS_POR_IDENTIFICACAO, identificarFacial } from '../api/biometria';
 import { mensagemDeErro, SessaoExpiradaError } from '../api/client';
-import { desfazerPresenca } from '../api/presenca';
+import { desfazerPresenca, registrarPresencaDigital } from '../api/presenca';
+import { mensagemDoLeitor } from '../digital/leitorRegras';
+import { useLeitorDigital } from '../digital/useLeitorDigital';
 import { fotografar } from '../face/captura';
 import { useMotorFacial } from '../face/MotorFacial';
 import { textoDaRecusa } from '../face/protocolo';
@@ -31,12 +33,14 @@ type PresencaNova = Extract<ResultadoTela, { tipo: 'registrada' | 'atrasada' }>;
  * motor calcula os vetores no aparelho e a API procura o aluno entre os da
  * escola. Com certeza, a presença já fica registrada (e dá para desfazer na
  * hora se o nome não for o do aluno); com dúvida, nada é gravado até quem
- * está no tablet confirmar quem é. Digital: depende do leitor USB (ver o
- * cartão explicativo).
+ * está no tablet confirmar quem é. Digital: com o leitor USB ligado (e o
+ * driver do fabricante instalado), o aluno põe o dedo, o leitor compara com
+ * as digitais da escola no próprio tablet e a presença é registrada.
  */
 export default function IdentificarTela({ nav }: { nav: Navegacao }) {
   const { tablet } = useLayout();
   const motor = useMotorFacial();
+  const leitor = useLeitorDigital();
   const camera = useRef<CameraView>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [metodo, setMetodo] = useState<Metodo>('facial');
@@ -99,6 +103,48 @@ export default function IdentificarTela({ nav }: { nav: Navegacao }) {
     }
   }
 
+  /** Digital: o aluno põe o dedo; achado entre as digitais da escola, a presença é registrada. */
+  async function identificarPelaDigital() {
+    if (processando) return;
+    pararTemporizador();
+    setResultado(null);
+    setProcessando(true);
+    setEtapa('Ponha o dedo no leitor');
+    try {
+      const leitura = await leitor.identificar();
+      if (leitura.tipo === 'erro') {
+        mostrar({ tipo: 'erro', texto: leitura.mensagem });
+        return;
+      }
+      if (leitura.tipo === 'nao_reconhecido') {
+        mostrar({
+          tipo: 'nao_reconhecido',
+          motivo: leitura.semCadastros ? 'Nenhum aluno da escola tem digital cadastrada ainda.' : 'A digital não bate com nenhuma da escola.',
+        });
+        return;
+      }
+      setEtapa('Registrando a presença…');
+      const resposta = await registrarPresencaDigital(leitura.idAluno);
+      const dados = resposta.dados;
+      mostrar(
+        resultadoDaIdentificacao({
+          sucesso: resposta.sucesso,
+          mensagem: resposta.mensagem,
+          dados: dados
+            ? { reconhecido: true, aluno: dados.aluno, presenca: dados.presenca, entrada: dados.entrada, pode_desfazer: dados.presenca.nova }
+            : null,
+        })
+      );
+    } catch (e) {
+      if (!(e instanceof SessaoExpiradaError)) {
+        mostrar({ tipo: 'erro', texto: mensagemDeErro(e, 'Não foi possível identificar pela digital. Tente de novo.') });
+      }
+    } finally {
+      setProcessando(false);
+      setEtapa(null);
+    }
+  }
+
   /** "É este aluno?": sim grava a presença do aluno guardado pela API; não, nada. */
   async function responder(confirmacao: Confirmacao, confirmar: boolean) {
     if (respondendo) return;
@@ -148,18 +194,20 @@ export default function IdentificarTela({ nav }: { nav: Navegacao }) {
           aoRegistrarManual={() => nav.navegar({ nome: 'registros' })}
           aoConfirmar={responder}
           aoDesfazer={desfazer}
+          metodo={metodo}
         />
       ) : (
         <Cartao style={estilos.orientacao}>
           <Text style={estilos.orientacaoTitulo}>{processando ? (etapa ?? 'Reconhecendo…') : 'Pronto para o próximo aluno'}</Text>
           <Text style={estilos.orientacaoTexto}>
-            Um aluno por vez, de frente para a câmera, com o rosto dentro do contorno. O app tira duas fotos seguidas:
-            com certeza, a presença é registrada na hora; com dúvida, ele pergunta quem é antes de registrar.
+            {metodo === 'digital'
+              ? 'Um aluno por vez: toque em "Ler digital" e peça para ele pôr o dedo cadastrado no leitor. Achada a digital, a presença é registrada na hora.'
+              : 'Um aluno por vez, de frente para a câmera, com o rosto dentro do contorno. O app tira duas fotos seguidas: com certeza, a presença é registrada na hora; com dúvida, ele pergunta quem é antes de registrar.'}
           </Text>
         </Cartao>
       )}
 
-      {motor.estado !== 'pronto' ? (
+      {metodo === 'facial' && motor.estado !== 'pronto' ? (
         <Aviso tipo={motor.estado === 'carregando' ? 'info' : 'erro'}>
           {motor.estado === 'carregando'
             ? 'Preparando o reconhecimento facial… leva alguns segundos ao abrir o app.'
@@ -168,16 +216,27 @@ export default function IdentificarTela({ nav }: { nav: Navegacao }) {
               : `O reconhecimento facial não carregou${motor.detalhe ? ` (${motor.detalhe})` : ''}.`}
         </Aviso>
       ) : null}
-      {motor.estado === 'erro' ? <Botao titulo="Recarregar o reconhecimento" variante="secundario" icone="refresh-cw" aoPressionar={motor.reiniciar} /> : null}
+      {metodo === 'facial' && motor.estado === 'erro' ? <Botao titulo="Recarregar o reconhecimento" variante="secundario" icone="refresh-cw" aoPressionar={motor.reiniciar} /> : null}
 
-      <Botao
-        titulo={processando ? 'Reconhecendo…' : 'Identificar'}
-        icone="mdi:face-recognition"
-        grande
-        carregando={processando}
-        desabilitado={motor.estado !== 'pronto'}
-        aoPressionar={identificar}
-      />
+      {metodo === 'digital' ? (
+        <Botao
+          titulo={processando ? 'Lendo a digital…' : 'Ler digital'}
+          icone="mdi:fingerprint"
+          grande
+          carregando={processando}
+          desabilitado={leitor.estado.situacao !== 'pronto'}
+          aoPressionar={identificarPelaDigital}
+        />
+      ) : (
+        <Botao
+          titulo={processando ? 'Reconhecendo…' : 'Identificar'}
+          icone="mdi:face-recognition"
+          grande
+          carregando={processando}
+          desabilitado={motor.estado !== 'pronto'}
+          aoPressionar={identificar}
+        />
+      )}
     </View>
   );
 
@@ -197,7 +256,12 @@ export default function IdentificarTela({ nav }: { nav: Navegacao }) {
           </View>
         ) : null}
         {metodo === 'digital' ? (
-          <SemLeitor aoRegistrarManual={() => nav.navegar({ nome: 'registros' })} />
+          <View style={[estilos.area, tablet && estilos.areaTablet]}>
+            <View style={[estilos.camera, tablet && estilos.cameraTablet]}>
+              <SituacaoDoLeitor leitor={leitor} aoRegistrarManual={() => nav.navegar({ nome: 'registros' })} />
+            </View>
+            {painel}
+          </View>
         ) : (
           <View style={[estilos.area, tablet && estilos.areaTablet]}>
             <View style={[estilos.camera, tablet && estilos.cameraTablet]}>
@@ -255,7 +319,9 @@ function CartaoResultado({
   aoRegistrarManual,
   aoConfirmar,
   aoDesfazer,
+  metodo,
 }: {
+  metodo: Metodo;
   resultado: ResultadoTela;
   respondendo: boolean;
   aoTentarDeNovo: () => void;
@@ -309,7 +375,11 @@ function CartaoResultado({
         <>
           <Text style={[estilos.resultadoTexto, { color: visual.cor }]}>
             {resultado.tipo === 'nao_reconhecido'
-              ? `${resultado.motivo ? `${resultado.motivo} ` : ''}Peça para o aluno olhar de frente para a câmera, com boa luz, e tente de novo. Se continuar, registre a presença manualmente.`
+              ? `${resultado.motivo ? `${resultado.motivo} ` : ''}${
+                  metodo === 'digital'
+                    ? 'Peça para o aluno limpar o dedo e apoiar bem no leitor, e tente de novo.'
+                    : 'Peça para o aluno olhar de frente para a câmera, com boa luz, e tente de novo.'
+                } Se continuar, registre a presença manualmente.`
               : resultado.texto}
           </Text>
           <View style={estilos.resultadoAcoes}>
@@ -324,22 +394,27 @@ function CartaoResultado({
   );
 }
 
-function SemLeitor({ aoRegistrarManual }: { aoRegistrarManual: () => void }) {
+/** O cartão do leitor de digital: o que falta para ler (conectar, permitir) ou "pronto". */
+function SituacaoDoLeitor({ leitor, aoRegistrarManual }: { leitor: ReturnType<typeof useLeitorDigital>; aoRegistrarManual: () => void }) {
+  const { situacao } = leitor.estado;
+  const { titulo, texto } = mensagemDoLeitor(leitor.estado);
+  const pronto = situacao === 'pronto';
   return (
     <Cartao style={estilos.semLeitor}>
-      <View style={estilos.semLeitorIcone}>
-        <Icone nome="mdi:fingerprint" tamanho={40} cor={cores.indigo} />
+      <View style={[estilos.semLeitorIcone, pronto && estilos.leitorProntoIcone]}>
+        <Icone nome="mdi:fingerprint" tamanho={40} cor={pronto ? cores.esmeraldaEscuro : cores.indigo} />
       </View>
-      <Text style={estilos.semLeitorTitulo}>Leitor de digital não conectado</Text>
-      <Text style={estilos.semLeitorTexto}>
-        A identificação pela digital usa um leitor USB compatível ligado ao tablet. O sensor do próprio celular não
-        serve: o Android só confirma o dono do aparelho e não deixa o app ler a digital de outras pessoas.
-      </Text>
-      <Text style={estilos.semLeitorTexto}>
-        O sistema já guarda as digitais cifradas e registra a presença pela digital; falta integrar o modelo de leitor
-        escolhido pela escola. Enquanto isso, use o reconhecimento facial ou o registro manual.
-      </Text>
-      <Botao titulo="Registrar presença manualmente" variante="secundario" icone="edit-3" aoPressionar={aoRegistrarManual} />
+      <Text style={estilos.semLeitorTitulo}>{titulo}</Text>
+      <Text style={estilos.semLeitorTexto}>{texto}</Text>
+      {situacao === 'sem_permissao' ? (
+        <Botao titulo="Permitir acesso ao leitor" icone="check" aoPressionar={() => void leitor.pedirPermissao()} />
+      ) : null}
+      {situacao === 'desconectado' ? (
+        <Botao titulo="Procurar o leitor de novo" variante="secundario" icone="refresh-cw" aoPressionar={leitor.atualizar} />
+      ) : null}
+      {!pronto ? (
+        <Botao titulo="Registrar presença manualmente" variante="secundario" icone="edit-3" aoPressionar={aoRegistrarManual} />
+      ) : null}
     </Cartao>
   );
 }
@@ -372,6 +447,7 @@ const estilos = StyleSheet.create({
   resultadoMotivo: { fontFamily: fontes.texto, fontSize: 14, lineHeight: 20, marginTop: espaco.xs },
   resultadoDesfazer: { marginTop: espaco.md },
   semLeitor: { alignItems: 'center', gap: espaco.md, padding: espaco.xxl, marginTop: espaco.lg },
+  leitorProntoIcone: { backgroundColor: cores.esmeralda100 },
   semLeitorIcone: { width: 76, height: 76, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.indigo50 },
   semLeitorTitulo: { fontFamily: fontes.titulo, fontSize: 22, color: cores.tinta900, textAlign: 'center' },
   semLeitorTexto: { fontFamily: fontes.texto, fontSize: 15, lineHeight: 22, color: cores.tinta500, textAlign: 'center', maxWidth: 560 },

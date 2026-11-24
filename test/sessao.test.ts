@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { lerSessaoGuardada, MARGEM_EXPIRACAO_MS, sessaoDoLogin, sessaoValida } from '../src/sessaoRegras.ts';
+import { lerSessaoGuardada, MARGEM_EXPIRACAO_MS, recusaDaContaNoApp, sessaoDoLogin, sessaoValida } from '../src/sessaoRegras.ts';
 
 const agora = Date.UTC(2026, 9, 30, 12, 0, 0);
 const login = {
@@ -36,4 +36,11 @@ test('sessão guardada corrompida, vencida ou da versão antiga do app é ignora
   assert.equal(lerSessaoGuardada(JSON.stringify({ deviceUuid: 'x', deviceSecret: 'y' }), agora), null);
   assert.equal(lerSessaoGuardada(JSON.stringify(sessaoDoLogin({ ...login, expira_em: agora / 1000 - 1 })), agora), null);
   assert.deepEqual(lerSessaoGuardada(JSON.stringify(sessaoDoLogin(login)), agora), sessaoDoLogin(login));
+});
+
+test('a conta da equipe do sistema não entra no app do tablet; a da escola entra', () => {
+  const base = { id_coordenacao: 1, nome_coordenacao: 'Equipe', email_coordenacao: 'equipe@escola.test', nome_escola: 'X', token: 't', expira_em: 0 };
+  assert.match(recusaDaContaNoApp({ ...base, administrador: true }) ?? '', /equipe do sistema/);
+  assert.equal(recusaDaContaNoApp({ ...base, administrador: false }), null);
+  assert.equal(recusaDaContaNoApp(base), null);
 });

@@ -1,0 +1,11 @@
+{
+  "_comentario": "Fabricantes de leitor USB de digital que o app reconhece ao conectar (vendorId USB, em decimal). O plugin plugins/comLeitorDigital.js gera daqui o filtro do Android: ao ligar um destes leitores, o Android oferece abrir o BioFrequência e já dá a permissão. Leitor de outro fabricante: acrescente aqui o vendorId dele (aparece na tela do app como 'Leitor USB desconhecido').",
+  "fabricantes": [
+    { "vendorId": 4450, "nome": "SecuGen" },
+    { "vendorId": 5265, "nome": "Futronic" },
+    { "vendorId": 1466, "nome": "DigitalPersona (HID)" },
+    { "vendorId": 5841, "nome": "Suprema" },
+    { "vendorId": 6997, "nome": "ZKTeco" },
+    { "vendorId": 4415, "nome": "Integrated Biometrics" }
+  ]
+}

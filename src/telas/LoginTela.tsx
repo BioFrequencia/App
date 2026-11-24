@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { entrar, pedirNovaSenha } from '../api/coordenacao';
+import { encerrarSessao, entrar, pedirNovaSenha } from '../api/coordenacao';
 import { definirToken, mensagemDeErro } from '../api/client';
 import { problemaDoEmailDaConta } from '../mensagensRegras';
 import { salvarSessao } from '../sessao';
-import { sessaoDoLogin } from '../sessaoRegras';
+import { recusaDaContaNoApp, sessaoDoLogin } from '../sessaoRegras';
 import type { Sessao } from '../types';
 import { Aviso, Botao, Campo, CampoSenha, Icone, Simbolo, Tela, useLayout } from '../ui/componentes';
 import { cores, espaco, fontes, raio } from '../ui/tema';
@@ -82,6 +82,15 @@ export default function LoginTela({ aoEntrar, aviso }: Props) {
       const resposta = await entrar(email, senha);
       if (!resposta.sucesso || !resposta.dados) {
         setErro(resposta.mensagem || 'Não foi possível entrar.');
+        return;
+      }
+      const recusa = recusaDaContaNoApp(resposta.dados);
+      if (recusa) {
+        // Nada fica guardado no tablet, e a sessão que a API abriu é encerrada.
+        definirToken(resposta.dados.token);
+        await encerrarSessao().catch(() => undefined);
+        definirToken(null);
+        setErro(recusa);
         return;
       }
       const sessao = sessaoDoLogin(resposta.dados);

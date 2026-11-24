@@ -17,6 +17,11 @@ export function pedirNovaSenha(email: string): Promise<ApiResponse<null>> {
   return postJson<null>('conta/esqueciSenha.php', { email: email.trim() }, false);
 }
 
+/** Encerra na API a sessão do token atual (some de "Dispositivos conectados"). */
+export function encerrarSessao(): Promise<ApiResponse<unknown>> {
+  return postJson('conta/sair.php');
+}
+
 /** Turmas da escola de quem está logado. */
 export function listarTurmas(): Promise<ApiResponse<Turma[]>> {
   return postJson<Turma[]>('user/listarSalas.php');
