@@ -29,6 +29,8 @@ export interface LoginDados {
   nome_escola: string;
   token: string;
   expira_em: number;
+  /** Conta da equipe do sistema (ADMIN_EMAILS na API): não é de escola nenhuma. */
+  administrador?: boolean;
 }
 
 export interface Turma {

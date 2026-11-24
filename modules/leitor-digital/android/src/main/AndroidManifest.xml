@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Leitor de digital USB (OTG). Não obrigatório: tablet sem USB host instala e usa a facial. -->
+  <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+</manifest>

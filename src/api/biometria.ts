@@ -105,3 +105,26 @@ export function confirmarIdentificacao(idIdentificacao: number, confirmar: boole
 export function excluirBiometria(idAluno: number, tipo: 'facial' | 'digital' | 'todas'): Promise<ApiResponse<{ registros_apagados: number }>> {
   return postJson('biometria/excluirBiometria.php', { id_aluno: idAluno, tipo });
 }
+
+/** Uma digital da escola, decifrada pela API, para o leitor comparar no aparelho. */
+export interface TemplateDigital {
+  id_aluno: number;
+  dedo: string;
+  formato: string;
+  template: string;
+}
+
+/** Digitais dos alunos ativos da escola (a comparação 1:N é feita pelo SDK do leitor, no tablet). */
+export function templatesDigitais(): Promise<ApiResponse<TemplateDigital[]>> {
+  return postJson<TemplateDigital[]>('biometria/templatesDigitais.php');
+}
+
+/** Cadastra (ou troca) a digital de um dedo do aluno - precisa do consentimento do responsável. */
+export function cadastrarDigital(
+  idAluno: number,
+  dedo: string,
+  template: string,
+  formato: string
+): Promise<ApiResponse<{ falta_consentimento?: boolean } | null>> {
+  return postJson('biometria/cadastrarBiometriaDigital.php', { id_aluno: idAluno, dedo, template, formato });
+}

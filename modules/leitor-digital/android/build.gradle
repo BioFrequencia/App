@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'br.com.biofrequencia'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.leitordigital"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // O SDK do fabricante do leitor (.aar) entra aqui quando a escola escolher
+  // o modelo, ex.: implementation files('libs/sdk-do-leitor.aar').
+  // Ver modules/leitor-digital/README.md.
+}

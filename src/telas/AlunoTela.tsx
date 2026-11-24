@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { excluirBiometria, listarAlunos, registrarConsentimento, revogarConsentimento } from '../api/biometria';
+import { cadastrarDigital, excluirBiometria, listarAlunos, registrarConsentimento, revogarConsentimento } from '../api/biometria';
+import { DEDOS, mensagemDoLeitor } from '../digital/leitorRegras';
+import { esquecerDigitaisDaEscola, useLeitorDigital } from '../digital/useLeitorDigital';
 import { mensagemDeErro } from '../api/client';
 import type { Navegacao } from '../navegacao';
 import type { AlunoBiometria } from '../types';
@@ -18,7 +20,9 @@ export default function AlunoTela({ nav, aluno: inicial }: { nav: Navegacao; alu
   const [aluno, setAluno] = useState(inicial);
   const [responsavel, setResponsavel] = useState('');
   const [termoAssinado, setTermoAssinado] = useState(false);
-  const [ocupado, setOcupado] = useState<'consentimento' | 'revogar' | 'apagar' | null>(null);
+  const [ocupado, setOcupado] = useState<'consentimento' | 'revogar' | 'apagar' | 'digital' | 'apagarDigital' | null>(null);
+  const [dedo, setDedo] = useState<string>(DEDOS[0]);
+  const leitor = useLeitorDigital();
   const [aviso, setAviso] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
 
   const recarregar = useCallback(async () => {
@@ -33,7 +37,7 @@ export default function AlunoTela({ nav, aluno: inicial }: { nav: Navegacao; alu
     recarregar().catch(() => undefined);
   }, [recarregar]);
 
-  async function executar(acao: 'consentimento' | 'revogar' | 'apagar', chamada: () => Promise<{ sucesso: boolean; mensagem: string }>, sucesso: string) {
+  async function executar(acao: 'consentimento' | 'revogar' | 'apagar' | 'apagarDigital', chamada: () => Promise<{ sucesso: boolean; mensagem: string }>, sucesso: string) {
     setOcupado(acao);
     setAviso(null);
     try {
@@ -73,7 +77,50 @@ export default function AlunoTela({ nav, aluno: inicial }: { nav: Navegacao; alu
     ]);
   }
 
+  /** Lê o dedo escolhido no leitor USB e guarda a digital (cifrada pela API). */
+  async function cadastrarADigital() {
+    setOcupado('digital');
+    setAviso(null);
+    try {
+      const amostra = await leitor.ler();
+      const resposta = await cadastrarDigital(aluno.id_aluno, dedo, amostra.template, amostra.formato);
+      if (resposta.sucesso) {
+        esquecerDigitaisDaEscola();
+        setAviso({ tipo: 'sucesso', texto: `Digital (${dedo.toLowerCase()}) cadastrada.` });
+        await recarregar();
+      } else {
+        setAviso({ tipo: 'erro', texto: resposta.mensagem });
+      }
+    } catch (e) {
+      setAviso({ tipo: 'erro', texto: e instanceof Error && e.message ? e.message : mensagemDeErro(e) });
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  function apagarDigitais() {
+    Alert.alert('Apagar as digitais', `As digitais de ${aluno.nome_aluno} deixam de ser reconhecidas até um novo cadastro.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Apagar',
+        style: 'destructive',
+        onPress: () =>
+          executar(
+            'apagarDigital',
+            async () => {
+              const resposta = await excluirBiometria(aluno.id_aluno, 'digital');
+              esquecerDigitaisDaEscola();
+              return resposta;
+            },
+            'Digitais apagadas.'
+          ),
+      },
+    ]);
+  }
+
   const temConsentimento = aluno.consentimento_responsavel !== null;
+  const situacaoDoLeitor = mensagemDoLeitor(leitor.estado);
+  const leitorPronto = leitor.estado.situacao === 'pronto';
 
   const identidade = (
     <Cartao style={estilos.cartao}>
@@ -145,13 +192,45 @@ export default function AlunoTela({ nav, aluno: inicial }: { nav: Navegacao; alu
         Biometria digital
       </TituloSecao>
       <View style={estilos.digital}>
-        <Icone nome="mdi:fingerprint" tamanho={28} cor={cores.tinta300} />
-        <Text style={[estilosTexto.fraco, estilos.flex]}>
-          O cadastro da digital precisa de um leitor USB compatível ligado ao tablet. O sistema já está pronto para guardar as
-          digitais cifradas; falta conectar o leitor escolhido pela escola.
-        </Text>
+        <Icone nome="mdi:fingerprint" tamanho={28} cor={leitorPronto ? cores.esmeraldaEscuro : cores.tinta300} />
+        <View style={estilos.flex}>
+          <Text style={estilosTexto.forte}>{situacaoDoLeitor.titulo}</Text>
+          <Text style={estilosTexto.fraco}>{situacaoDoLeitor.texto}</Text>
+        </View>
       </View>
-      <Botao titulo="Cadastrar digital" icone="mdi:fingerprint" variante="secundario" desabilitado aoPressionar={() => undefined} />
+      {leitor.estado.situacao === 'sem_permissao' ? (
+        <Botao titulo="Permitir acesso ao leitor" icone="check" variante="secundario" aoPressionar={() => void leitor.pedirPermissao()} />
+      ) : null}
+      {leitorPronto ? (
+        <View style={estilos.dedos} accessibilityRole="radiogroup" accessibilityLabel="Dedo que será lido">
+          {DEDOS.map((opcao) => {
+            const ativo = opcao === dedo;
+            return (
+              <Pressable
+                key={opcao}
+                onPress={() => setDedo(opcao)}
+                style={[estilos.dedo, ativo && estilos.dedoAtivo]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: ativo }}
+              >
+                <Text style={[estilos.dedoTexto, ativo && estilos.dedoTextoAtivo]}>{opcao}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      <Botao
+        titulo={ocupado === 'digital' ? 'Ponha o dedo no leitor…' : 'Cadastrar digital'}
+        icone="mdi:fingerprint"
+        variante="secundario"
+        desabilitado={!temConsentimento || !leitorPronto}
+        carregando={ocupado === 'digital'}
+        aoPressionar={cadastrarADigital}
+      />
+      {!temConsentimento ? <Text style={estilosTexto.fraco}>Registre o consentimento primeiro.</Text> : null}
+      {aluno.digitais > 0 ? (
+        <Botao titulo="Apagar as digitais" variante="perigo" icone="trash-2" carregando={ocupado === 'apagarDigital'} aoPressionar={apagarDigitais} />
+      ) : null}
     </Cartao>
   );
 
@@ -201,4 +280,9 @@ const estilos = StyleSheet.create({
   nome: { fontFamily: fontes.titulo, fontSize: 22, color: cores.tinta900, letterSpacing: -0.3 },
   termo: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
   digital: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
+  dedos: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.sm },
+  dedo: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: cores.nevoa200 },
+  dedoAtivo: { backgroundColor: cores.indigo, borderColor: cores.indigo },
+  dedoTexto: { fontFamily: fontes.textoSemi, fontSize: 13, color: cores.tinta700 },
+  dedoTextoAtivo: { color: '#ffffff' },
 });
