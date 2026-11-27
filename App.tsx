@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 
 import { definirAoExpirar, definirToken } from './src/api/client';
+import { esquecerDigitaisDaEscola } from './src/digital/useLeitorDigital';
 import { MotorFacialProvider } from './src/face/MotorFacial';
 import type { Navegacao, Rota } from './src/navegacao';
 import { apagarSessao, carregarSessao } from './src/sessao';
@@ -59,6 +60,9 @@ export default function App() {
   const encerrar = useCallback(async (aviso: string | null) => {
     await apagarSessao();
     definirToken(null);
+    // As digitais baixadas são da escola desta conta: outra conta no mesmo
+    // tablet não pode identificar alunos com elas.
+    esquecerDigitaisDaEscola();
     setAvisoLogin(aviso);
     setPilha([{ nome: 'inicio' }]);
     setSessao(null);
@@ -90,6 +94,7 @@ export default function App() {
       <LoginTela
         aviso={avisoLogin}
         aoEntrar={(nova) => {
+          esquecerDigitaisDaEscola();
           setAvisoLogin(null);
           setPilha([{ nome: 'inicio' }]);
           setSessao(nova);
